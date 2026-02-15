@@ -5,12 +5,13 @@ import { BookingData } from '../types';
 // NOTE: In a real environment, these keys should come from process.env
 // For this demo, we will check if they exist. If not, we run in "Demo Mode".
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyClNG8TzoEv_XAWSk1yptmWnXMmphChPyI",
+  authDomain: "machu-196d8.firebaseapp.com",
+  projectId: "machu-196d8",
+  storageBucket: "machu-196d8.firebasestorage.app",
+  messagingSenderId: "483035524496",
+  appId: "1:483035524496:web:3f09fa0e2cd4e7fe741715",
+  measurementId: "G-XQ0NCECSGW"
 };
 
 let app: FirebaseApp | undefined;
