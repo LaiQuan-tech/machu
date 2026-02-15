@@ -1,0 +1,539 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  Phone, 
+  Menu, 
+  X, 
+  ScrollText, 
+  Flame, 
+  HeartHandshake, 
+  ChevronRight,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
+import { BookingData, ConsultationType } from './types';
+import { submitBooking } from './services/firebase';
+
+const App: React.FC = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('home');
+  const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const [formData, setFormData] = useState<BookingData>({
+    name: '',
+    phone: '',
+    birthDate: '',
+    bookingDate: '',
+    bookingTime: '',
+    type: ConsultationType.CAREER,
+    notes: ''
+  });
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBookingStatus('loading');
+    
+    try {
+      await submitBooking(formData);
+      setBookingStatus('success');
+      // Reset form after success
+      setFormData({
+        name: '',
+        phone: '',
+        birthDate: '',
+        bookingDate: '',
+        bookingTime: '',
+        type: ConsultationType.CAREER,
+        notes: ''
+      });
+    } catch (error) {
+      console.error(error);
+      setBookingStatus('error');
+    }
+  };
+
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+    setIsMenuOpen(false);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white">
+      {/* Navigation */}
+      <nav className="fixed w-full z-50 bg-temple-red text-temple-bg shadow-lg border-b-4 border-temple-gold">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('home')}>
+               <div className="bg-temple-gold p-2 rounded-full border-2 border-white/20">
+                 <Flame className="w-6 h-6 text-temple-red fill-current" />
+               </div>
+               <div>
+                 <h1 className="text-2xl font-bold tracking-widest font-serif">聖母宮</h1>
+                 <p className="text-xs tracking-widest text-temple-gold opacity-90">Mazu Temple</p>
+               </div>
+            </div>
+            
+            <div className="hidden md:block">
+              <div className="ml-10 flex items-baseline space-x-8">
+                {['home', 'about', 'services', 'booking', 'contact'].map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => scrollToSection(item)}
+                    className={`px-3 py-2 rounded-md text-base font-medium transition-colors duration-300 font-serif
+                      ${activeSection === item 
+                        ? 'text-temple-gold border-b-2 border-temple-gold' 
+                        : 'text-white hover:text-temple-gold'}`}
+                  >
+                    {{
+                      'home': '首頁',
+                      'about': '聖母緣起',
+                      'services': '宮廟服務',
+                      'booking': '預約諮詢',
+                      'contact': '聯絡我們'
+                    }[item]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="-mr-2 flex md:hidden">
+              <button
+                onClick={toggleMenu}
+                className="inline-flex items-center justify-center p-2 rounded-md text-temple-gold hover:text-white focus:outline-none"
+              >
+                {isMenuOpen ? <X className="h-8 w-8" /> : <Menu className="h-8 w-8" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        {isMenuOpen && (
+          <div className="md:hidden bg-temple-red border-t border-temple-gold/30">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+               {['home', 'about', 'services', 'booking', 'contact'].map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => scrollToSection(item)}
+                    className="block w-full text-left px-3 py-4 rounded-md text-base font-medium text-white hover:text-temple-gold hover:bg-red-800"
+                  >
+                     {{
+                      'home': '首頁',
+                      'about': '聖母緣起',
+                      'services': '宮廟服務',
+                      'booking': '預約諮詢',
+                      'contact': '聯絡我們'
+                    }[item]}
+                  </button>
+               ))}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Hero Section */}
+      <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
+        {/* Background Image Placeholder */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop" 
+            alt="Temple Background" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-temple-red/70 to-temple-dark/80 mix-blend-multiply" />
+        </div>
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+          <div className="mb-6 inline-block">
+             <span className="bg-temple-gold/20 text-temple-gold border border-temple-gold px-4 py-1 rounded-full text-sm tracking-widest backdrop-blur-sm">
+               護國佑民 • 慈悲濟世
+             </span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 font-serif drop-shadow-lg leading-tight">
+            天上聖母 <br/>
+            <span className="text-temple-gold">靈感護佑</span>
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-200 mb-10 font-light tracking-wide max-w-2xl mx-auto">
+            誠心祈求，自有感應。聖母宮提供線上預約服務，<br/>為信眾指點迷津，解惑安神。
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={() => scrollToSection('booking')}
+              className="px-8 py-4 bg-temple-gold hover:bg-yellow-400 text-temple-red font-bold rounded-md shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg"
+            >
+              <Calendar className="w-5 h-5" />
+              立即預約諮詢
+            </button>
+            <button 
+              onClick={() => scrollToSection('services')}
+              className="px-8 py-4 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold rounded-md transition-all flex items-center justify-center gap-2 text-lg"
+            >
+              <ScrollText className="w-5 h-5" />
+              了解服務項目
+            </button>
+          </div>
+        </div>
+        
+        {/* Decorative Divider */}
+        <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)'}}></div>
+      </section>
+
+      {/* About Section */}
+      <section id="about" className="py-20 bg-temple-bg relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="relative">
+               <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
+               <img 
+                 src="https://images.unsplash.com/photo-1599557470872-4632a76f2f9f?q=80&w=1974&auto=format&fit=crop" 
+                 alt="Mazu Statue" 
+                 className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+               />
+            </div>
+            <div>
+              <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center">
+                <span className="w-8 h-1 bg-temple-red mr-3"></span>
+                關於聖母宮
+              </h2>
+              <h3 className="text-4xl font-bold text-temple-dark mb-6 font-serif">
+                百年香火，世代傳承
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed text-lg">
+                聖母宮供奉天上聖母（媽祖），自建廟以來，香火鼎盛，神威顯赫。媽祖慈悲為懷，聞聲救苦，庇佑海上漁民與陸上子民平安順遂。
+              </p>
+              <p className="text-gray-600 mb-8 leading-relaxed text-lg">
+                本宮秉持正信正念，弘揚媽祖濟世精神。除了傳統祭祀儀式，更結合現代化服務，提供信眾心靈寄託與人生方向的指引。
+              </p>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
+                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">1892</span>
+                  <span className="text-gray-500">建廟年份</span>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
+                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">10萬+</span>
+                  <span className="text-gray-500">年度信眾</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Services Section */}
+      <section id="services" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 inline-block border-b-2 border-temple-gold pb-1">
+            宮廟服務
+          </h2>
+          <h3 className="text-4xl font-bold text-temple-dark mb-16 font-serif">
+            祈福保平安，點燈開智慧
+          </h3>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Service 1 */}
+            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
+              <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
+                <Flame className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">光明燈 / 安太歲</h4>
+              <p className="text-gray-600 mb-6">
+                農曆新年期間，提供安太歲、點光明燈、文昌燈、財利燈服務，祈求流年順遂，元辰光彩。
+              </p>
+              <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+                立即登記 <ChevronRight className="w-4 h-4 ml-1" />
+              </a>
+            </div>
+
+            {/* Service 2 */}
+            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
+               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
+                <ScrollText className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">收驚 / 祭改</h4>
+              <p className="text-gray-600 mb-6">
+                孩童受驚、成人運勢不順、車關血光等，皆可透過傳統科儀進行收驚祭改，化解厄運。
+              </p>
+               <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+                預約時段 <ChevronRight className="w-4 h-4 ml-1" />
+              </a>
+            </div>
+
+            {/* Service 3 */}
+            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100 relative overflow-hidden">
+               <div className="absolute top-0 right-0 bg-temple-gold text-white text-xs px-2 py-1 font-bold rounded-bl-lg">
+                 熱門服務
+               </div>
+               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
+                <HeartHandshake className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">問事諮詢</h4>
+              <p className="text-gray-600 mb-6">
+                事業、感情、家運遇有瓶頸，誠心向聖母請示。本宮提供一對一專人解籤與諮詢服務。
+              </p>
+               <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+                線上預約 <ChevronRight className="w-4 h-4 ml-1" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Booking Section */}
+      <section id="booking" className="py-20 bg-temple-red relative text-white">
+        {/* Pattern Overlay */}
+        <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#D4AF37 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+        
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-12">
+            <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2">
+              線上服務
+            </h2>
+            <h3 className="text-4xl font-bold mb-4 font-serif">
+              預約諮詢表單
+            </h3>
+            <p className="text-red-100 max-w-2xl mx-auto">
+              請填寫下方資料，我們將儘速為您安排諮詢時間。所有資料僅供廟方聯絡使用，絕對保密。
+            </p>
+          </div>
+
+          <div className="bg-white text-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-8 md:p-12">
+              {bookingStatus === 'success' ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <h4 className="text-2xl font-bold text-gray-900 mb-2">預約成功！</h4>
+                  <p className="text-gray-600 mb-8">
+                    感謝您的預約。廟方人員將於收到資料後，<br/>透過電話與您確認最終諮詢時間。
+                  </p>
+                  <button 
+                    onClick={() => setBookingStatus('idle')}
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-red-800 transition-colors"
+                  >
+                    再預約一筆
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        id="name"
+                        required
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                        placeholder="請輸入姓名"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        id="phone"
+                        required
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                        placeholder="0912-345-678"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1">出生年月日 (農曆/國曆皆可) *</label>
+                      <input
+                        type="text"
+                        name="birthDate"
+                        id="birthDate"
+                        required
+                        value={formData.birthDate}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                        placeholder="例如：民國75年8月15日"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">諮詢項目 *</label>
+                      <select
+                        name="type"
+                        id="type"
+                        required
+                        value={formData.type}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
+                      >
+                        {Object.values(ConsultationType).map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="bookingDate" className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 *</label>
+                      <input
+                        type="date"
+                        name="bookingDate"
+                        id="bookingDate"
+                        required
+                        value={formData.bookingDate}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="bookingTime" className="block text-sm font-medium text-gray-700 mb-1">希望時段 *</label>
+                      <select
+                         name="bookingTime"
+                         id="bookingTime"
+                         required
+                         value={formData.bookingTime}
+                         onChange={handleInputChange}
+                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
+                      >
+                        <option value="">請選擇時段</option>
+                        <option value="morning">上午 (09:00 - 12:00)</option>
+                        <option value="afternoon">下午 (14:00 - 17:00)</option>
+                        <option value="evening">晚上 (19:00 - 21:00)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
+                    <textarea
+                      name="notes"
+                      id="notes"
+                      rows={3}
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      placeholder="請簡述您想請示的問題..."
+                    ></textarea>
+                  </div>
+
+                  {bookingStatus === 'error' && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      <span>預約提交失敗，請檢查網路或稍後再試。</span>
+                    </div>
+                  )}
+
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={bookingStatus === 'loading'}
+                      className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
+                        ${bookingStatus === 'loading' 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-temple-gold text-temple-red hover:bg-yellow-400 hover:shadow-xl transform hover:-translate-y-1'}`}
+                    >
+                      {bookingStatus === 'loading' ? (
+                        <span>處理中...</span>
+                      ) : (
+                        <>
+                          <Flame className="w-5 h-5 fill-current" />
+                          確認送出預約
+                        </>
+                      )}
+                    </button>
+                    <p className="text-center text-gray-500 text-sm mt-4">
+                      * 提交後即代表同意本宮隱私權政策
+                    </p>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer id="contact" className="bg-temple-dark text-white border-t border-white/10 pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-3 gap-12 mb-12">
+            <div>
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="bg-temple-gold p-1.5 rounded-full">
+                  <Flame className="w-5 h-5 text-temple-red fill-current" />
+                </div>
+                <span className="text-xl font-bold font-serif tracking-widest">聖母宮</span>
+              </div>
+              <p className="text-gray-400 leading-relaxed mb-6">
+                天上聖母慈悲為懷，庇佑十方善信。<br/>
+                歡迎各界善男信女蒞臨參香指導，共沐神恩。
+              </p>
+              <div className="flex space-x-4">
+                 <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
+                   <span className="sr-only">Facebook</span>
+                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
+                 </button>
+                 <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
+                   <span className="sr-only">Instagram</span>
+                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.484 2h.05m0 5.238a5.238 5.238 0 110 10.476 5.238 5.238 0 010-10.476zm0 2.162a3.077 3.077 0 100 6.154 3.077 3.077 0 000-6.154zM20.24 6.388a1.44 1.44 0 10-2.88 0 1.44 1.44 0 002.88 0z" clipRule="evenodd" /></svg>
+                 </button>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-lg font-bold font-serif text-temple-gold mb-6">聯絡資訊</h4>
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3 text-gray-400">
+                  <MapPin className="w-5 h-5 mt-1 text-temple-red" />
+                  <span>台灣省某某縣某某市某某路88號<br/>(聖母宮)</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-400">
+                  <Phone className="w-5 h-5 text-temple-red" />
+                  <span>(02) 2345-6789</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-400">
+                  <Clock className="w-5 h-5 text-temple-red" />
+                  <span>每日 06:00 - 21:00</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-lg font-bold font-serif text-temple-gold mb-6">交通指引</h4>
+              <div className="w-full h-40 bg-gray-800 rounded-lg flex items-center justify-center border border-gray-700">
+                <span className="text-gray-500 text-sm">Google Maps 嵌入區</span>
+              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                捷運：搭乘至某某站，步行約10分鐘。<br/>
+                公車：搭乘123, 456路公車至聖母宮站。
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-8 text-center text-gray-500 text-sm">
+            <p>&copy; {new Date().getFullYear()} 聖母宮. All rights reserved. 網站設計：信徒志工團</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
