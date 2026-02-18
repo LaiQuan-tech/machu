@@ -5,5 +5,12 @@
   "rewrites": [
     { "source": "/admin/(.*)", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "dev": true
+    }
+  },
+  "alias": ["machu-staging.vercel.app"]
 }
