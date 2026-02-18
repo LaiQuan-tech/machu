@@ -1,5 +1,3 @@
-import React from 'react';
-
 export enum ConsultationType {
   CAREER = '事業前途',
   HEALTH = '身體健康',
@@ -10,17 +8,23 @@ export enum ConsultationType {
 }
 
 export interface BookingData {
-  name: string;
-  phone: string;
-  birthDate: string; // Lunar birthday is often preferred, but standard date for simplicity
-  bookingDate: string;
-  bookingTime: string;
-  type: ConsultationType;
-  notes?: string;
+  name: string
+  phone: string
+  birth_date: string
+  booking_date: string
+  booking_time: string
+  consultation_type: ConsultationType
+  notes?: string
 }
 
-export interface ServiceItem {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+
+export interface Booking extends BookingData {
+  id: string
+  status: BookingStatus
+  admin_notes?: string | null
+  handled_by?: string | null
+  handled_at?: string | null
+  created_at: string
+  updated_at: string
 }

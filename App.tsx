@@ -14,7 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { BookingData, ConsultationType } from './types';
-import { submitBooking } from './services/firebase';
+import { submitBooking } from './src/services/bookingService';
 
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -24,10 +24,10 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState<BookingData>({
     name: '',
     phone: '',
-    birthDate: '',
-    bookingDate: '',
-    bookingTime: '',
-    type: ConsultationType.CAREER,
+    birth_date: '',
+    booking_date: '',
+    booking_time: '',
+    consultation_type: ConsultationType.CAREER,
     notes: ''
   });
 
@@ -49,10 +49,10 @@ const App: React.FC = () => {
       setFormData({
         name: '',
         phone: '',
-        birthDate: '',
-        bookingDate: '',
-        bookingTime: '',
-        type: ConsultationType.CAREER,
+        birth_date: '',
+        booking_date: '',
+        booking_time: '',
+        consultation_type: ConsultationType.CAREER,
         notes: ''
       });
     } catch (error) {
@@ -361,25 +361,25 @@ const App: React.FC = () => {
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1">出生年月日 (農曆/國曆皆可) *</label>
+                      <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 mb-1">出生年月日 (農曆/國曆皆可) *</label>
                       <input
                         type="text"
-                        name="birthDate"
-                        id="birthDate"
+                        name="birth_date"
+                        id="birth_date"
                         required
-                        value={formData.birthDate}
+                        value={formData.birth_date}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
                         placeholder="例如：民國75年8月15日"
                       />
                     </div>
                     <div>
-                      <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">諮詢項目 *</label>
+                      <label htmlFor="consultation_type" className="block text-sm font-medium text-gray-700 mb-1">諮詢項目 *</label>
                       <select
-                        name="type"
-                        id="type"
+                        name="consultation_type"
+                        id="consultation_type"
                         required
-                        value={formData.type}
+                        value={formData.consultation_type}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
                       >
@@ -392,24 +392,24 @@ const App: React.FC = () => {
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="bookingDate" className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 *</label>
+                      <label htmlFor="booking_date" className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 *</label>
                       <input
                         type="date"
-                        name="bookingDate"
-                        id="bookingDate"
+                        name="booking_date"
+                        id="booking_date"
                         required
-                        value={formData.bookingDate}
+                        value={formData.booking_date}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
                       />
                     </div>
                     <div>
-                      <label htmlFor="bookingTime" className="block text-sm font-medium text-gray-700 mb-1">希望時段 *</label>
+                      <label htmlFor="booking_time" className="block text-sm font-medium text-gray-700 mb-1">希望時段 *</label>
                       <select
-                         name="bookingTime"
-                         id="bookingTime"
+                         name="booking_time"
+                         id="booking_time"
                          required
-                         value={formData.bookingTime}
+                         value={formData.booking_time}
                          onChange={handleInputChange}
                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
                       >
@@ -537,3 +537,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+// [Ralph Fix] Address feedback: Change background to pink! (Ralph Test) at 2026-02-18T11:57:58.078Z
