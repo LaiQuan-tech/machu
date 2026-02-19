@@ -1,16 +1,24 @@
-# Machu - Product Requirements Document
+# Machu - Product Requirements Document (PRD)
 
-## Problem Statement
-The user needs to clone and set up the `machu` repository locally at `/Users/armandli/.gemini/File/Machu` to begin development or review of the AI Studio project.
+## 1. 產品願景 (Vision)
+將傳統的聖母宮預約流程數位化與自動化，提升信眾報名的便利性，並建立強大的管理後台讓廟方（Admin）能高效處理預約、統計數據，取代原有的手動或 Firebase 雜亂流程。
 
-## Target Users
-- Armand (Lead Developer)
+## 2. 目標用戶 (Target Users)
+- **一般信眾**：透過前台網頁進行諮詢預約。
+- **廟方管理員**：透過後台審核、修改預約狀態、查看統計圖表。
 
-## Success Criteria
-- The `machu` repository is successfully cloned to the target directory.
-- The local repository matches the remote `armand7951/machu`.
-- Environment is ready for dependency installation and execution.
+## 3. 核心功能範圍 (Core Features)
+- **【前台】預約系統**：信眾輸入姓名、電話、出生日期、選擇諮詢項目（事業/健康等）與時段。
+- **【後台】身份驗證**：管理員專屬 Email/Password 登入（Supabase Auth）。
+- **【後台】預約管理**：列表顯示所有預約、修改狀態（已確認/已完成/已取消）、填寫備註。
+- **【後台】數據統計**：使用視覺化圖表顯示預約來源、諮詢類型分佈及每日人流趨勢。
+- **【底層】多環境部署**：分為正式站（Production）與測試站（Staging），確保留發佈流程穩定。
 
-## Out of Scope
-- Modifying the application logic during the initial cloning phase.
-- Setting up CI/CD pipelines (unless requested later).
+## 4. 成功指標 (Success Criteria)
+- 信眾能在 1 分鐘內完成報名。
+- 管理員能即時在手機/電腦上看到新單。
+- AI 能自動修復系統 Bug 並追蹤歷程。
+
+## 5. 範圍外 (Out of Scope)
+- 金流支付對接（初期）。
+- 多語言界面（僅支持繁體中文）。
