@@ -1,5 +1,5 @@
 {
-  "name": "聖母宮---天上聖母線上預約",
+  "name": "和聖壇---線上預約",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,19 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.96.0",
-    "lucide-react": "^0.564.0",
-    "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0",
-    "recharts": "^3.7.0"
+    "react": "^19.2.4",
+    "lucide-react": "^0.564.0",
+    "firebase": "^12.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.4.24",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

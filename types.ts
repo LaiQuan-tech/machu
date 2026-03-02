@@ -1,3 +1,5 @@
+import React from 'react';
+
 export enum ConsultationType {
   CAREER = '事業前途',
   HEALTH = '身體健康',
@@ -7,24 +9,48 @@ export enum ConsultationType {
   OTHER = '其他疑難'
 }
 
-export interface BookingData {
-  name: string
-  phone: string
-  birth_date: string
-  booking_date: string
-  booking_time: string
-  consultation_type: ConsultationType
-  notes?: string
+export enum BookingStatus {
+  PENDING = '待處理',
+  CONFIRMED = '已確認',
+  COMPLETED = '已完成',
+  CANCELLED = '已取消'
 }
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+export interface BookingData {
+  name: string;
+  phone: string;
+  birthDate: string; // Lunar birthday is often preferred, but standard date for simplicity
+  bookingDate: string;
+  bookingTime: string;
+  type: ConsultationType;
+  notes?: string;
+  status?: BookingStatus;
+  createdAt?: any;
+}
 
-export interface Booking extends BookingData {
-  id: string
-  status: BookingStatus
-  admin_notes?: string | null
-  handled_by?: string | null
-  handled_at?: string | null
-  created_at: string
-  updated_at: string
+export interface BookingRecord extends BookingData {
+  id: string;
+}
+
+export enum DonationType {
+  GENERAL = '隨喜捐款 (不指定)',
+  MAINTENANCE = '廟宇維護/修繕',
+  CHARITY = '慈善救助',
+  EDUCATION = '教育文化',
+  EVENT = '法會活動'
+}
+
+export interface DonationData {
+  name: string;
+  phone: string;
+  amount: number;
+  type: DonationType;
+  notes?: string;
+  createdAt?: any;
+}
+
+export interface ServiceItem {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
 }
