@@ -810,12 +810,24 @@ const App: React.FC = () => {
 
             <div>
               <h4 className="text-lg font-bold font-serif text-temple-gold mb-6">交通指引</h4>
-              <div className="w-full h-40 bg-gray-800 rounded-lg flex items-center justify-center border border-gray-700">
-                <span className="text-gray-500 text-sm">Google Maps 嵌入區</span>
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                捷運：搭乘至某某站，步行約10分鐘。<br />
-                公車：搭乘123, 456路公車至和聖壇站。
+              <a
+                href="https://www.google.com/maps/search/100臺北市中正區晉江街72巷9號"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full h-52 rounded-lg overflow-hidden border border-gray-700 hover:opacity-90 transition-opacity"
+              >
+                <iframe
+                  title="和聖壇地圖"
+                  src="https://maps.google.com/maps?q=100臺北市中正區晉江街72巷9號&output=embed&hl=zh-TW"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0, pointerEvents: 'none' }}
+                  allowFullScreen
+                  loading="lazy"
+                />
+              </a>
+              <p className="text-sm text-gray-500 mt-3">
+                📍 點擊地圖可在 Google Maps 中開啟導航
               </p>
             </div>
           </div>
