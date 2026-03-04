@@ -795,7 +795,7 @@ const App: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-start space-x-3 text-gray-400">
                   <MapPin className="w-5 h-5 mt-1 text-temple-red" />
-                  <span>台灣省某某縣某某市某某路88號<br />(和聖壇)</span>
+                  <span>100臺北市中正區晉江街72巷9號</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Phone className="w-5 h-5 text-temple-red" />
