@@ -838,9 +838,10 @@ const App: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
         title="加入 LINE 諮詢"
-        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-14 h-14 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
+        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-16 rounded-2xl shadow-2xl hover:scale-110 transition-transform flex flex-col items-center justify-center py-2 gap-0.5"
       >
         <LineIcon className="w-7 h-7" />
+        <span className="text-[11px] font-bold tracking-wider leading-none">LINE</span>
       </a>
 
       {/* Admin Login Modal */}
