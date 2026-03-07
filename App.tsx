@@ -37,6 +37,7 @@ import AdminDashboard from './components/AdminDashboard';
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
+  const [isScrolled, setIsScrolled] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
@@ -116,6 +117,10 @@ const App: React.FC = () => {
         if (img.sectionKey === 'about') setAboutImageUrl(url);
       }
     }).catch(console.error);
+
+    const handleScroll = () => setIsScrolled(window.scrollY > 30);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const filteredBulletins = bulletinFilter === 'all'
@@ -239,101 +244,108 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white">
       {/* Navigation */}
-      <nav className="fixed w-full z-50 bg-temple-red text-temple-bg shadow-lg border-b-4 border-temple-gold">
+      <nav className={`fixed w-full z-50 transition-all duration-300 ${
+        isScrolled
+          ? 'bg-temple-red/95 backdrop-blur-md shadow-xl border-b-2 border-temple-gold/60'
+          : 'bg-temple-red/80 backdrop-blur-sm border-b-2 border-temple-gold/30'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('home')}>
-              <div className="bg-white p-0.5 rounded-full border-2 border-temple-gold/50 shadow-md">
-                <img src="/logo.png" alt="和聖壇 Logo" className="w-14 h-14 object-contain" referrerPolicy="no-referrer" />
+          <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
+            <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => scrollToSection('home')}>
+              <div className={`bg-white rounded-full border-2 border-temple-gold/50 shadow-md transition-all duration-300 ${isScrolled ? 'p-0.5' : 'p-0.5'}`}>
+                <img src="/logo.png" alt="和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-2xl font-bold tracking-widest font-serif">和聖壇</h1>
-                <p className="text-xs tracking-widest text-temple-gold opacity-90 uppercase">He Sheng Altar</p>
+                <h1 className={`font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>和聖壇</h1>
+                <p className="text-[10px] tracking-widest text-temple-gold/80 uppercase">He Sheng Altar</p>
               </div>
             </div>
 
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="flex items-baseline space-x-8">
-                {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => scrollToSection(item)}
-                    className={`px-3 py-2 rounded-md text-base font-medium transition-colors duration-300 font-serif
-                      ${activeSection === item
-                        ? 'text-temple-gold border-b-2 border-temple-gold'
-                        : 'text-white hover:text-temple-gold'}`}
-                  >
-                    {{
-                      'home': '首頁',
-                      'bulletin': '公佈欄',
-                      'about': '和聖壇緣起',
-                      'deities': '神明介紹',
-                      'services': '宮廟服務',
-                      'booking': '預約諮詢',
-                      'donation': '捐獻護持',
-                      'contact': '聯絡我們'
-                    }[item]}
-                  </button>
-                ))}
-              </div>
+            <div className="hidden lg:flex items-center gap-1">
+              {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
+                <button
+                  key={item}
+                  onClick={() => scrollToSection(item)}
+                  className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
+                    ${activeSection === item
+                      ? 'bg-temple-gold/20 text-temple-gold'
+                      : 'text-white/90 hover:bg-white/10 hover:text-white'}`}
+                >
+                  {{
+                    'home': '首頁',
+                    'bulletin': '公佈欄',
+                    'about': '緣起',
+                    'deities': '神明介紹',
+                    'services': '服務',
+                    'booking': '預約',
+                    'donation': '捐獻',
+                    'contact': '聯絡'
+                  }[item]}
+                  {activeSection === item && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-temple-gold rounded-full" />
+                  )}
+                </button>
+              ))}
+              <div className="w-px h-6 bg-white/20 mx-1" />
               <a
                 href="https://lin.ee/lj0gLqR"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-[#06C755] text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#05b34c] transition-colors shadow-lg"
+                className="bg-[#06C755] text-white px-3.5 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 hover:bg-[#05b34c] hover:scale-105 transition-all duration-200 shadow-md"
               >
                 <LineIcon className="w-4 h-4" />
-                LINE 諮詢
+                LINE
               </a>
             </div>
 
-            <div className="-mr-2 flex md:hidden">
+            <div className="-mr-2 flex lg:hidden">
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md text-temple-gold hover:text-white focus:outline-none"
+                className="inline-flex items-center justify-center p-2 rounded-full text-temple-gold hover:text-white hover:bg-white/10 transition-colors"
               >
-                {isMenuOpen ? <X className="h-8 w-8" /> : <Menu className="h-8 w-8" />}
+                {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
               </button>
             </div>
           </div>
         </div>
 
         {/* Mobile menu */}
-        {isMenuOpen && (
-          <div className="md:hidden bg-temple-red border-t border-temple-gold/30">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => scrollToSection(item)}
-                  className="block w-full text-left px-3 py-4 rounded-md text-base font-medium text-white hover:text-temple-gold hover:bg-red-800"
-                >
-                  {{
-                    'home': '首頁',
-                    'bulletin': '公佈欄',
-                    'about': '和聖壇緣起',
-                    'deities': '神明介紹',
-                    'services': '宮廟服務',
-                    'booking': '預約諮詢',
-                    'donation': '捐獻護持',
-                    'contact': '聯絡我們'
-                  }[item]}
-                </button>
-              ))}
-              <div className="px-3 py-4">
-                <a
-                  href="https://lin.ee/lj0gLqR"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-[#06C755] text-white px-4 py-3 rounded-lg text-center font-bold flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <LineIcon className="w-5 h-5" />
-                  加入 LINE 官方帳號
-                </a>
-              </div>
+        <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="bg-temple-red/95 backdrop-blur-md border-t border-temple-gold/20 px-4 pt-2 pb-4 space-y-1">
+            {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
+              <button
+                key={item}
+                onClick={() => scrollToSection(item)}
+                className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
+                  ${activeSection === item
+                    ? 'bg-temple-gold/15 text-temple-gold'
+                    : 'text-white hover:bg-white/10 hover:text-temple-gold'}`}
+              >
+                {{
+                  'home': '首頁',
+                  'bulletin': '公佈欄',
+                  'about': '和聖壇緣起',
+                  'deities': '神明介紹',
+                  'services': '宮廟服務',
+                  'booking': '預約諮詢',
+                  'donation': '捐獻護持',
+                  'contact': '聯絡我們'
+                }[item]}
+              </button>
+            ))}
+            <div className="pt-2">
+              <a
+                href="https://lin.ee/lj0gLqR"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-[#06C755] text-white px-4 py-3 rounded-lg text-center font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-[#05b34c] transition-colors"
+              >
+                <LineIcon className="w-5 h-5" />
+                加入 LINE 官方帳號
+              </a>
             </div>
           </div>
-        )}
+        </div>
       </nav>
 
       {/* Hero Section */}
