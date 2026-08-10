@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
 
-const STORAGE_BASE = 'https://keosbjepuvqqqhzyuplb.supabase.co/storage/v1/object/public/site-images';
+// 由環境變數推導，避免專案搬遷時圖片 404
+const STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images`;
 
 interface ScripturePageProps {
   onBack: () => void;

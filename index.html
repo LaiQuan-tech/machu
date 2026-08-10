@@ -3,37 +3,560 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>台北古亭和聖壇官網-開發中</title>
+    <meta name="theme-color" content="#7C5C1E" />
+    <meta name="color-scheme" content="light" />
+    <!-- 法會收件期間：標題與分享預覽改成報名版；收件結束後換回下方註解的官網版。
+         這一組與 App.tsx 的 FAHUI_LANDING 是同一件事的兩半，改旗標時記得一起改。
+         官網版：台北古亭和聖壇｜問事、祈福點燈與法會服務 -->
+    <title>和聖壇法會線上報名｜佛道兩儀慈悲普渡禮懺法會</title>
+    <meta name="description" content="佛道兩儀慈悲普渡禮懺法會，國曆9/13（農曆8/03）舉行。線上填表報名、自動結算金額，超薦拔渡歷代祖先、冤親債主、地基主、嬰靈及動物靈，廣結善緣、消災解厄。" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="canonical" href="https://heshengtan.tw/" />
+    <link rel="preload" href="/hero-gold.jpg" as="image" fetchpriority="high" />
+    <link rel="preload" href="/hero-erma.webp" as="image" type="image/webp" />
+
+    <!-- Open Graph（LINE／Facebook 分享預覽） -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="台北古亭和聖壇" />
+    <meta property="og:title" content="和聖壇法會線上報名｜佛道兩儀慈悲普渡禮懺法會" />
+    <meta property="og:description" content="佛道兩儀慈悲普渡禮懺法會，國曆9/13（農曆8/03）舉行。線上填表報名、自動結算金額，超薦拔渡歷代祖先、冤親債主、地基主、嬰靈及動物靈，廣結善緣、消災解厄。" />
+    <!-- 分享卡的縮圖：1200×630（LINE／FB 的標準 1.91:1）。
+         舊的 fahui-banner.jpg 是 3200×800 的 4:1 橫幅，在 LINE 的卡片裡會被裁掉兩側或留黑邊，
+         檔案仍留在 public/ 給報名表頁面內用。這張由 scripts 之外的合成產生，來源是
+         public/hero-gold.jpg ＋ 三尊去背圖，版面與網站 Hero 一致。 -->
+    <meta property="og:image" content="https://heshengtan.tw/og-hero.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="台北古亭和聖壇" />
+    <!-- og:url 刻意跟 canonical 不同，兩者服務的對象不一樣：
+         canonical 是給搜尋引擎的「正版網址」＝正式官網 heshengtan.tw；
+         og:url 是分享卡片要導去的位置——法會宣傳連結發出去的全是 machu-five.vercel.app，
+         那個網址才會顯示報名表（heshengtan.tw 的根路徑是官網首頁，見 App.tsx 的 OFFICIAL_HOSTS）。
+         填成官網的話，從 LINE 點分享卡片會落到首頁、找不到報名表。
+         收件結束、FAHUI_LANDING 改 false 之後，這裡要一起換回 heshengtan.tw。 -->
+    <meta property="og:url" content="https://machu-five.vercel.app/" />
+    <meta property="og:locale" content="zh_TW" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="和聖壇法會線上報名｜佛道兩儀慈悲普渡禮懺法會" />
+    <meta name="twitter:description" content="佛道兩儀慈悲普渡禮懺法會，國曆9/13舉行。線上填表報名、自動結算金額。" />
+    <meta name="twitter:image" content="https://heshengtan.tw/og-hero.jpg" />
+
+    <!-- ── 結構化資料（JSON-LD）────────────────────────────────────────────
+         這是本站唯一「不需要執行 JavaScript 就讀得到」的內容。
+         本站是純前端渲染的 SPA，原始 HTML 的可見文字是 0 個字——
+         Google 會跑 JS 所以看得到，但 GPTBot／ClaudeBot／PerplexityBot 這類
+         AI 檢索器**不執行 JS**，沒有這一段的話它們對本站一無所知。
+         事實有變動時記得跟著改（地址、電話、服務項目）。 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": ["PlaceOfWorship", "LocalBusiness"],
+          "@id": "https://heshengtan.tw/#temple",
+          "name": "台北古亭和聖壇",
+          "alternateName": ["和聖壇", "古亭和聖壇"],
+          "url": "https://heshengtan.tw/",
+          "telephone": "+886-953-945-349",
+          "image": "https://heshengtan.tw/og-hero.jpg",
+          "logo": "https://heshengtan.tw/logo.png",
+          "foundingDate": "1984",
+          "openingHoursSpecification": {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+            "opens": "06:00",
+            "closes": "22:30"
+          },
+          "description": "台北市中正區的媽祖廟，主祀天上聖母。提供預約問事、祈福點燈、祈福法會等服務，並定期舉辦普渡法會。",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "晉江街72巷9號",
+            "addressLocality": "中正區",
+            "addressRegion": "臺北市",
+            "postalCode": "100",
+            "addressCountry": "TW"
+          },
+          "sameAs": ["https://lin.ee/lj0gLqR"],
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "宮廟服務",
+            "itemListElement": [
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "預約問事", "description": "事業、感情、家運等疑難向神明請示，提供一對一專人解籤與問事，須線上預約場次。", "url": "https://heshengtan.tw/booking" } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "祈福點燈", "description": "太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，多於農曆新年期間辦理，可線上登記。", "url": "https://heshengtan.tw/lamps" } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "祈福法會", "description": "不定期舉辦，為信眾消災解厄、增福添壽，可線上報名。", "url": "https://heshengtan.tw/blessing" } }
+            ]
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://heshengtan.tw/#website",
+          "url": "https://heshengtan.tw/",
+          "name": "台北古亭和聖壇",
+          "inLanguage": "zh-TW",
+          "publisher": { "@id": "https://heshengtan.tw/#temple" }
+        },
+        {
+          "@type": "Event",
+          "name": "佛道兩儀慈悲普渡禮懺法會",
+          "startDate": "2026-09-13",
+          "endDate": "2026-09-13",
+          "eventStatus": "https://schema.org/EventScheduled",
+          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+          "description": "國曆 9/13（農曆 8/03）舉行。超薦拔渡歷代祖先、冤親債主、地基主、嬰靈及動物靈，線上報名至 9/06 止。",
+          "organizer": { "@id": "https://heshengtan.tw/#temple" },
+          "location": {
+            "@type": "Place",
+            "name": "台北古亭和聖壇",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "晉江街72巷9號",
+              "addressLocality": "中正區",
+              "addressRegion": "臺北市",
+              "postalCode": "100",
+              "addressCountry": "TW"
+            }
+          },
+          "offers": {
+            "@type": "Offer",
+            "url": "https://machu-five.vercel.app/",
+            "availability": "https://schema.org/InStock",
+            "validThrough": "2026-09-06T23:59:59+08:00"
+          }
+        }
+      ]
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'temple-red': '#7C5C1E',
-              'temple-gold': '#C49820',
-              'temple-bg': '#F5F0E8',
-              'temple-dark': '#2E2A22',
-            },
-            fontFamily: {
-              serif: ['"Noto Serif TC"', 'serif'],
-              sans: ['"Noto Sans TC"', 'sans-serif'],
-            }
-          }
-        }
-      }
-    </script>
     <style>
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 80px;
+      }
       body {
         font-family: 'Noto Sans TC', sans-serif;
         background-color: #F8F5F0;
+        overflow-x: clip;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
       }
+      button, a, [role="button"] { touch-action: manipulation; }
+      :focus-visible { outline: 3px solid rgba(196, 152, 32, 0.82); outline-offset: 3px; }
+      img { height: auto; }
       h1, h2, h3, h4, h5, h6 {
         font-family: 'Noto Serif TC', serif;
+      }
+      @media (max-width: 639px) {
+        input, select, textarea { font-size: 16px !important; }
+      }
+      section[id] { scroll-margin-top: 80px; }
+
+      /* ── Hero 場景節奏 ──
+         背景的綢緞是持續互動；前景只在首次進場時揭幕，之後保持莊重穩定。
+         神像僅隨觀看角度移動數個像素，提供景深而不做漂浮動畫。 */
+      .hero-scene {
+        --hero-x: 0;
+        --hero-y: 0;
+        --hero-shift-x: 0px;
+        --hero-shift-y: 0px;
+        isolation: isolate;
+      }
+      @keyframes heroTitleReveal {
+        from { opacity: 0; transform: translateY(-14px); filter: blur(4px); }
+        to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+      }
+      @keyframes heroActionReveal {
+        from { opacity: 0; transform: translateY(18px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes heroDeityReveal {
+        from { opacity: 0; transform: translateY(34px) scale(0.975); filter: blur(3px); }
+        to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      }
+      @keyframes heroAuraBreathe {
+        0%, 100% { opacity: 0.36; transform: translate(-50%, -50%) scale(0.96); }
+        50%      { opacity: 0.54; transform: translate(-50%, -50%) scale(1.04); }
+      }
+      @keyframes heroButtonGleam {
+        0%, 72% { transform: translateX(-145%) skewX(-18deg); opacity: 0; }
+        78%     { opacity: 0.45; }
+        92%, 100% { transform: translateX(165%) skewX(-18deg); opacity: 0; }
+      }
+      .hero-title {
+        animation: heroTitleReveal 900ms 180ms cubic-bezier(0.22, 0.72, 0.28, 1) both;
+      }
+      .hero-actions {
+        animation: heroActionReveal 800ms 760ms cubic-bezier(0.22, 0.72, 0.28, 1) both;
+      }
+      .hero-deity-stage {
+        position: relative;
+        z-index: 1;
+        transform: translate3d(var(--hero-shift-x), var(--hero-shift-y), 0);
+        will-change: transform;
+      }
+      .hero-deity {
+        position: relative;
+        z-index: 1;
+        display: block;
+        opacity: 0;
+        animation: heroDeityReveal 1050ms cubic-bezier(0.16, 0.76, 0.24, 1) forwards;
+      }
+      /* 最大的那尊（二媽）先進場，其餘依序跟上 */
+      .hero-deity-1 { animation-delay: 240ms; }
+      .hero-deity-2 { animation-delay: 420ms; }
+      .hero-deity-3 { animation-delay: 560ms; }
+      .hero-aura {
+        position: absolute;
+        z-index: 0;
+        left: 58%;
+        top: 48%;
+        width: min(64vw, 720px);
+        aspect-ratio: 1;
+        border-radius: 999px;
+        pointer-events: none;
+        background: radial-gradient(circle, rgba(255, 238, 171, 0.34) 0%, rgba(241, 190, 78, 0.12) 38%, transparent 70%);
+        mix-blend-mode: screen;
+        filter: blur(10px);
+        animation: heroAuraBreathe 8s ease-in-out infinite;
+      }
+      .hero-primary {
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-primary::after {
+        content: '';
+        position: absolute;
+        inset: -40% auto -40% -35%;
+        width: 24%;
+        pointer-events: none;
+        background: linear-gradient(90deg, transparent, rgba(255, 244, 205, 0.7), transparent);
+        animation: heroButtonGleam 7.5s 2.2s ease-in-out infinite;
+      }
+
+      /* ── 絲綢反光：織錦的「翻面」隨觀看角度掃過 Hero ──
+         實拍的雲龍紋緞面（使用者提供的影片）逐格比對後，關鍵不是「哪裡比較亮」，
+         而是**紋樣與底子會互換明暗**：某些角度雲紋比底子暗，轉一下雲紋反而比底子亮。
+         那是織錦的經緯緞面在換面——紋樣與底子用相反的緞紋織成，
+         誰正對光源誰就發亮，另一個就沉下去。整片提亮／壓暗永遠做不出這件事。
+
+         做法：把同一張底圖再放一層，套上「只翻亮度、不翻色相」的濾鏡
+         （invert 會連色相一起翻成藍，再 hue-rotate(180deg) 轉回暖色系，
+          最後用 sepia＋saturate 把它拉回原圖的褐金家族），
+         然後用一條柔邊的橫帶遮罩決定哪一片顯示翻面版，遮罩隨角度掃過畫面。
+
+         遮罩掛在外層、圖片放在內層做反向位移：外層平移時遮罩跟著掃，
+         內層把圖釘回原位，兩張圖才會像素對齊——不然翻面帶會整個位移、露餡。
+         兩層都只動 transform，瀏覽器在合成層插值，不必自己跑 rAF。
+
+         角度由 --silk-x／--silk-y 餵進來（桌機游標、手機陀螺儀，見 components/SilkSheen.tsx）。 */
+      .silk-stage {
+        --silk-x: 0;          /* -1（左）… 1（右） */
+        --silk-y: 0;          /* -1（上）… 1（下） */
+        --silk-sweep-x: 22vw; /* 角度打滿時，翻面帶橫向掃多遠 */
+        --silk-sweep-y: 26vh;
+        --silk-tilt: 7deg;    /* 左右角度讓帶子傾斜多少 */
+      }
+      /* 手機要更明顯：翻面帶比畫面還寬，橫向平移幾乎看不出來，
+         而手機最自然的動作恰好是左右轉手腕。所以窄螢幕把主力放在
+         「縱向行程加大」＋「左右傾斜改成轉動帶子的角度」——
+         帶子一斜，兩端就上下擺，整片布的翻面關係跟著變，這才看得出來。 */
+      @media (max-width: 639px) {
+        .silk-stage {
+          --silk-sweep-x: 18vw;
+          --silk-sweep-y: 34vh;
+          --silk-tilt: 14deg;
+        }
+        /* 背光那一面也壓深一階，與翻面帶的落差拉開，小螢幕才看得出翻轉 */
+        .silk-matte {
+          -webkit-backdrop-filter: brightness(0.68) saturate(1.42);
+          backdrop-filter: brightness(0.68) saturate(1.42);
+        }
+        /* 手機拿在手上、轉動是連續的，緩動縮短一點才跟得上手 */
+        .silk-flip, .silk-flip-inner { transition-duration: 400ms; }
+      }
+      /* 底圖。放進元件而不是留在 App，是為了讓翻面層一定跟它同一組座標， */
+      /* 兩者只要有一點對不齊，翻面帶的邊界就會出現重影。 */
+      .silk-base {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+      }
+
+      .silk-flip,
+      .silk-matte,
+      .silk-spec {
+        position: absolute;
+        left: -50%;
+        top: -50%;
+        width: 200%;
+        height: 200%;
+        will-change: transform;
+        transition: transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
+      }
+
+      /* 真實輸入由元件內的逐幀阻尼處理。此時再套 CSS transition 會形成雙重延遲。 */
+      .silk-stage.silk-live .silk-flip,
+      .silk-stage.silk-live .silk-flip-inner,
+      .silk-stage.silk-live .silk-matte,
+      .silk-stage.silk-live .silk-spec {
+        transition: none;
+      }
+
+      /* 翻面帶：一條橫貫畫面的柔邊帶，帶內顯示明暗相反的那一面。
+         平移決定帶子掃到哪，旋轉決定帶子斜多少（左右傾斜靠這個才看得出來）。 */
+      .silk-flip {
+        -webkit-mask-image: radial-gradient(ellipse 78% 17% at 50% 50%, #000 0%, rgba(0,0,0,0.95) 40%, rgba(0,0,0,0.45) 66%, transparent 88%);
+        mask-image: radial-gradient(ellipse 78% 17% at 50% 50%, #000 0%, rgba(0,0,0,0.95) 40%, rgba(0,0,0,0.45) 66%, transparent 88%);
+        transform: translate(calc(var(--silk-x) * var(--silk-sweep-x)), calc(var(--silk-y) * var(--silk-sweep-y)))
+                   rotate(calc(var(--silk-x) * var(--silk-tilt)));
+      }
+      /* 內層把圖釘回舞台原位（inset:25% 於 200% 容器＝剛好等於舞台大小）。
+         外層是「先轉再位移」，要抵銷就得反過來「先反位移再反轉」——
+         順序寫反的話圖會被轉走，翻面帶的邊界立刻出現重影。
+         兩層的 transform-origin 都落在舞台正中心，所以轉軸一致。 */
+      .silk-flip-inner {
+        position: absolute;
+        inset: 25%;
+        will-change: transform;
+        transition: transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        transform: rotate(calc(var(--silk-x) * var(--silk-tilt) * -1))
+                   translate(calc(var(--silk-x) * var(--silk-sweep-x) * -1), calc(var(--silk-y) * var(--silk-sweep-y) * -1));
+      }
+      .silk-flip-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        /* 只翻亮度、留在褐金色系。數值是在頁面上逐檔比對出來的：
+           sepia 再低會偏灰綠、再高會糊掉；saturate 再高會變成刺眼的橘。 */
+        filter: invert(1) hue-rotate(180deg) sepia(0.7) saturate(2.4) brightness(0.92);
+      }
+
+      /* 背光的那一面沉下去：壓暗加飽和，與翻面帶反向移動，一邊亮一邊沉才有翻轉感 */
+      .silk-matte {
+        -webkit-backdrop-filter: brightness(0.78) saturate(1.28);
+        backdrop-filter: brightness(0.78) saturate(1.28);
+        -webkit-mask-image: radial-gradient(ellipse 80% 26% at 50% 50%, #000 0%, rgba(0,0,0,0.6) 44%, transparent 82%);
+        mask-image: radial-gradient(ellipse 80% 26% at 50% 50%, #000 0%, rgba(0,0,0,0.6) 44%, transparent 82%);
+        transition-duration: 640ms;
+        transform: translate(calc(var(--silk-x) * var(--silk-sweep-x) * -0.9), calc(var(--silk-y) * var(--silk-sweep-y) * -1));
+      }
+
+      /* 鏡面高光核心：騎在翻面帶上，暖心冷邊＝蠶絲的珍珠光。
+         這層才適合用加法（screen），因為它模擬的是額外進入眼睛的光。 */
+      .silk-spec {
+        mix-blend-mode: screen;
+        filter: blur(14px);
+        background:
+          radial-gradient(ellipse 52% 9% at 50% 48%, rgba(255,252,240,0.30) 0%, rgba(255,238,196,0.11) 52%, transparent 78%),
+          radial-gradient(ellipse 60% 13% at 50% 58%, rgba(206,226,255,0.10) 0%, transparent 72%);
+        transition-duration: 460ms;
+        transform: translate(calc(var(--silk-x) * var(--silk-sweep-x) * 1.04), calc(var(--silk-y) * var(--silk-sweep-y) * 1.04));
+      }
+
+      /* ── 拜拜香煙的舞台 ──
+         位置在 Hero 左側：宮壇名在更左上、報名鈕在左下，煙柱走在兩者之間那條空白帶，
+         不會壓到字。z-10 讓煙走在三尊神明（z-20）後面，像真的在殿內飄，
+         而不是貼在神尊臉上。畫布本身不吃事件。 */
+      .incense-stage {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+        left: 2%;
+        /* 滿版高度：煙要一路飄到 Hero 頂端，不是升到一半就沒了 */
+        top: 0;
+        bottom: 0;
+        width: 52%;
+      }
+      @media (min-width: 640px) {
+        /* 桌機把煙柱收窄、往右挪一點：太靠邊會被「和聖壇」直式標題壓到 */
+        .incense-stage { left: 10%; width: 30%; }
+      }
+      .incense-stage canvas { display: block; width: 100%; height: 100%; }
+
+      /* ── 金箔版（tone="gold"）──
+         這套原本是為織錦綢緞調的：綢緞的纖維是三稜鏡，轉個角度同一塊布會由亮翻暗，
+         所以有一層「亮度反轉」的翻面帶。金箔沒有這回事——它是金屬，只有反射的強弱。
+         把亮度反轉層直接疊在金黃底上，反轉後的顏色會落在橄欖綠，整片金看起來像髒了
+         （實測過：關掉這一層，金才是廟方那張視覺圖的金）。
+         所以金箔版只留兩件事：光帶掃過去變亮，背面稍微沉一點。 */
+      .silk-gold .silk-flip { display: none; }
+      .silk-gold .silk-matte {
+        -webkit-backdrop-filter: brightness(0.90) saturate(1.10);
+        backdrop-filter: brightness(0.90) saturate(1.10);
+      }
+      /* 金屬的高光比蠶絲的珍珠光更集中、更白，帶一點暖 */
+      .silk-gold .silk-spec {
+        filter: blur(18px);
+        background:
+          radial-gradient(ellipse 46% 11% at 50% 50%, rgba(255,250,225,0.42) 0%, rgba(255,232,170,0.16) 50%, transparent 78%),
+          radial-gradient(ellipse 64% 18% at 50% 56%, rgba(255,244,205,0.12) 0%, transparent 74%);
+      }
+      @media (max-width: 639px) {
+        /* 手機一樣要把背光那面壓深一階，翻面帶不在了，落差只能靠 matte 撐 */
+        .silk-gold .silk-matte {
+          -webkit-backdrop-filter: brightness(0.82) saturate(1.16);
+          backdrop-filter: brightness(0.82) saturate(1.16);
+        }
+      }
+
+      /* 待機動作：還沒收到滑鼠或陀螺儀之前，翻面帶自己緩緩游移，畫面不會是死的。
+         收到第一筆真實輸入後元件會加上 .silk-live，動畫停掉、交還給使用者控制。 */
+      /* 翻面帶與它的內層必須是「完全相反」的兩支動畫，差一點點圖就會位移、邊界出現重影，
+         所以這兩支獨立寫死成互為反向，不跟 matte／spec 共用。 */
+      @keyframes silkDriftFlip     { 0%, 100% { transform: translate(-9vw, -30vh); } 50% { transform: translate(9vw, 30vh); } }
+      @keyframes silkDriftFlipBack { 0%, 100% { transform: translate(9vw, 30vh); }   50% { transform: translate(-9vw, -30vh); } }
+      @keyframes silkDriftAway     { 0%, 100% { transform: translate(8vw, 26vh); }   50% { transform: translate(-8vw, -26vh); } }
+      @keyframes silkDriftWith     { 0%, 100% { transform: translate(-9vw, -30vh); } 50% { transform: translate(9vw, 30vh); } }
+      .silk-stage:not(.silk-live) .silk-flip       { animation: silkDriftFlip 16s ease-in-out infinite; }
+      .silk-stage:not(.silk-live) .silk-flip-inner { animation: silkDriftFlipBack 16s ease-in-out infinite; }
+      .silk-stage:not(.silk-live) .silk-spec       { animation: silkDriftWith 16s ease-in-out infinite; }
+      .silk-stage:not(.silk-live) .silk-matte      { animation: silkDriftAway 16s ease-in-out infinite; }
+
+      /* 使用者若在系統開啟「減少動態效果」：停掉自己會動的待機游移，
+         但保留跟著滑鼠／傾斜走的反應——那是使用者自己操作出來的，
+         只把行程減半、緩動放慢，避免大幅度的自動位移。 */
+      @media (prefers-reduced-motion: reduce) {
+        .hero-title,
+        .hero-actions,
+        .hero-deity,
+        .hero-aura,
+        .hero-primary::after { animation: none; opacity: 1; filter: none; }
+        .hero-deity-stage { transform: none; }
+        .silk-stage { --silk-sweep-x: 18vw; --silk-sweep-y: 26vh; --silk-tilt: 9deg; }
+        .silk-stage:not(.silk-live) .silk-flip,
+        .silk-stage:not(.silk-live) .silk-flip-inner,
+        .silk-stage:not(.silk-live) .silk-matte,
+        .silk-stage:not(.silk-live) .silk-spec { animation: none; }
+        .silk-flip, .silk-flip-inner, .silk-matte, .silk-spec { transition-duration: 760ms; }
+      }
+
+      /* 傾斜提示：iOS 要使用者手勢才給陀螺儀權限，所以 Hero 放一顆明確的提示鈕。
+         做成細框的磁青小籤，跟報名按鈕同一套語彙但份量輕，不搶 CTA。 */
+      .silk-tip.silk-tip {
+        border-radius: 999px;
+        background: rgba(22, 41, 75, 0.62);
+        color: #EBD293;
+        border: 1px solid rgba(226, 197, 124, 0.55);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 16px rgba(16, 30, 58, 0.35);
+      }
+      .silk-tip.silk-tip:active { background: rgba(30, 53, 96, 0.8); }
+      .silk-tip.silk-tip:focus-visible { outline: 2px solid #F7E6BC; outline-offset: 3px; }
+      @keyframes silkTipRock {
+        0%, 100% { transform: rotate(-9deg); }
+        50%      { transform: rotate(9deg); }
+      }
+      .silk-tip-icon { animation: silkTipRock 2.4s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .silk-tip-icon { animation: none; }
+      }
+
+      /* ── 進場與視差：沿用「天上聖母經」那一頁的手法 ──
+         兩個要點讓它比一般的 fade-in 順：
+         1. 觸發點抓在畫面外（桌機 1.5 倍視窗高、手機 1.15 倍），
+            元素還沒進畫面就開始動，捲到時已經在半途，不會「跳出來」。
+         2. 圖片除了進場，還隨捲動持續位移與縮放（視差），
+            所以整頁是「一直在動」而不是「動一下就停」。
+         曲線與時長刻意與聖母經頁一致，兩頁的節奏才是同一套語彙。 */
+      .sr {
+        opacity: 0;
+        transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .sr-up    { transform: translateY(64px); }
+      .sr-left  { transform: translateX(-104px) scale(0.94); }
+      .sr-right { transform: translateX(104px) scale(0.94); }
+      .sr.in { opacity: 1; transform: none; }
+      .sr-d1 { transition-delay: 0.10s; }
+      .sr-d2 { transition-delay: 0.22s; }
+      .sr-d3 { transition-delay: 0.36s; }
+      /* 手機橫向位移要收斂：螢幕窄，104px 幾乎是三分之一個畫面寬，
+         滑入時會先看到一段空白，反而像破圖 */
+      @media (max-width: 767px) {
+        .sr-left  { transform: translateX(-48px) scale(0.96); }
+        .sr-right { transform: translateX(48px) scale(0.96); }
+      }
+
+      /* ── 頁面底圖：固定的祥雲裝飾層 ──
+         position:fixed：內容整片往上捲、底圖幾乎不動，這個速度差是視差最強烈的形式。
+         每朵雲再依自己的 depth 微幅位移，做出前後層次。
+         深色底的區域（頁尾）不套用——金線在深色上會糊成一片髒污。 */
+      .page-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .cloud-piece {
+        position: absolute;
+        height: auto;
+        will-change: transform;
+      }
+      /* 內容要浮在底圖之上，否則會被蓋住 */
+      .page-content { position: relative; z-index: 1; }
+
+      /* 照片視差：外框與照片一起移動（不再是照片在框內飄）。
+         整塊一起動比較看得出來，也不會讓人覺得照片和框「脫節」。 */
+      .sr-figure { will-change: transform; }
+      /* 文字欄反向微幅位移：兩層速度不同才有層次，這是視差真正的來源 */
+      .sr-counter { will-change: transform; }
+
+      /* 減少動態效果：關掉「進場」這種自動播放的動畫。
+         視差不在此列——它完全由使用者的捲動驅動，捲多少動多少。 */
+      @media (prefers-reduced-motion: reduce) {
+        .sr { opacity: 1 !important; transform: none !important; transition: none !important; }
+      }
+
+      /* 標題斷行平衡。中文對句（例如「心中有善不畏苦；家有溫暖路有光。」）
+         若照預設斷行，最後常掉一兩個字到第二行變成孤字；balance 會把各行字數拉平，
+         剛好斷在分號處。用 class 而不是 Tailwind 任意值：本專案 CDN 版產不出部分任意值。 */
+      .balance-text { text-wrap: balance; }
+
+      /* ── Hero 行動按鈕：故宮《龍藏經》的磁青紙泥金字 ──
+         Hero 底圖是滿版金色織錦，原本的金色按鈕等於埋進背景裡，再怎麼加陰影都跳不出來。
+         龍藏經正好給了同一套宮廷語彙裡對比最強的解：深磁青的紙、泥金的字、
+         以及每一頁都有的雙道金界欄。深藍靛壓在滿版金上，是這張底圖上唯一能一眼看到的顏色。
+         界欄用兩層 inset 陰影做：先鋪一圈 3px 的磁青，再讓第 4px 的金透出來，
+         就得到「離邊框 3px 的一道細金線」，比多包一層 div 乾淨。
+         用 class 而不是 Tailwind 任意值：本專案的 CDN 版產不出 bg-[#…]，
+         且 CDN 樣式表插在這段 <style> 之後，雙寫類名提高權重才不會被工具類蓋掉。 */
+      .btn-sutra.btn-sutra {
+        /* 微圓角的長方形：經頁與經板都是方的，雙金界欄配方角才像那個版面；
+           圓角只留 4px 去掉刻板的銳利感，不做成藥丸。半徑寫在這裡而不是用工具類，
+           一來與界欄的 inset 陰影同源好對齊，二來不必賭 CDN 版產不產得出任意值。 */
+        border-radius: 4px;
+        background: linear-gradient(180deg, #1F3560 0%, #16294B 55%, #101E3A 100%);
+        color: #EBD293;
+        border: 1px solid rgba(226, 197, 124, 0.85);
+        box-shadow:
+          inset 0 0 0 3px #16294B,
+          inset 0 0 0 4px rgba(226, 197, 124, 0.45),
+          0 10px 28px rgba(16, 30, 58, 0.45);
+      }
+      .btn-sutra.btn-sutra:hover {
+        background: linear-gradient(180deg, #2A447A 0%, #1E3560 55%, #16294B 100%);
+        color: #F7E6BC;
+        box-shadow:
+          inset 0 0 0 3px #1E3560,
+          inset 0 0 0 4px rgba(247, 230, 188, 0.7),
+          0 14px 34px rgba(16, 30, 58, 0.55);
+      }
+      /* 鍵盤 Tab 到按鈕時要看得見焦點框——金字配金框會糊，改用最亮的一階 */
+      .btn-sutra.btn-sutra:focus-visible {
+        outline: 2px solid #F7E6BC;
+        outline-offset: 3px;
       }
     </style>
   <script type="importmap">
@@ -51,6 +574,32 @@
 </head>
   <body>
     <div id="root"></div>
+
+    <!-- 沒有 JavaScript 時的內容。兩個用途：
+         (1) 關掉 JS 的使用者至少看得到地址電話，不是一片空白；
+         (2) 不執行 JS 的檢索器（GPTBot／ClaudeBot／PerplexityBot）能讀到實際文字。
+         內容必須與網站上真的有的資訊一致，不要為了 SEO 塞關鍵字。 -->
+    <noscript>
+      <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
+        <h1 style="font-size:1.75rem;margin:0 0 .25rem">台北古亭和聖壇</h1>
+        <p style="color:#7C5C1E;margin:0 0 1.5rem">主祀天上聖母．創立於民國 73 年</p>
+        <p>
+          地址：100 臺北市中正區晉江街 72 巷 9 號<br />
+          電話：<a href="tel:0953945349" style="color:#7C5C1E">0953-945-349</a><br />
+          開放時間：每日 06:00 – 22:30<br />
+          LINE 官方帳號：<a href="https://lin.ee/lj0gLqR" style="color:#7C5C1E">加入好友</a>
+        </p>
+        <h2 style="font-size:1.15rem;margin:1.75rem 0 .5rem">宮廟服務</h2>
+        <ul>
+          <li><a href="/booking" style="color:#7C5C1E">預約問事</a>：事業、感情、家運等疑難向神明請示，一對一專人解籤，可線上預約場次，亦接受現場報名。</li>
+          <li><a href="/lamps" style="color:#7C5C1E">祈福點燈</a>：太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，多於農曆新年期間辦理。</li>
+          <li><a href="/blessing" style="color:#7C5C1E">祈福法會</a>：不定期舉辦，為信眾消災解厄、增福添壽。</li>
+          <li><a href="/relocation" style="color:#7C5C1E">遷址捐款</a>：道場遷址的護持專案。</li>
+          <li><a href="/about" style="color:#7C5C1E">關於和聖壇</a>：沿革與壇務介紹。</li>
+        </ul>
+        <p style="margin-top:1.75rem;color:#7C5C1E">本網站需要啟用 JavaScript 才能顯示完整內容與線上登記功能。</p>
+      </div>
+    </noscript>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

@@ -21,17 +21,18 @@ const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
 
 const THIS_YEAR = new Date().getFullYear();
 
+// 國曆與農曆年份一律以民國年顯示（民國72年），value 仍為西元年供換算
 const YEAR_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: '吉' },
+  { value: 0, label: '吉年' },
   ...Array.from({ length: THIS_YEAR - 1911 }, (_, i) => {
     const g = THIS_YEAR - i;
     const roc = g - 1911;
-    return { value: g, label: `${g}年（民國${roc === 1 ? '元' : roc}年）` };
+    return { value: g, label: `民國${roc === 1 ? '元' : roc}年` };
   }),
 ];
 
 const SOLAR_MONTH_OPTIONS = [
-  { value: 0, label: '吉' },
+  { value: 0, label: '吉月' },
   ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` })),
 ];
 
@@ -66,7 +67,7 @@ function getLunarMonthOptions(gregorianYear: number): { value: string; label: st
   if (gregorianYear > 0) {
     try { leapMonth = LunarYear.fromYear(gregorianYear).getLeapMonth(); } catch { leapMonth = 0; }
   }
-  const opts: { value: string; label: string }[] = [{ value: '0', label: '吉' }];
+  const opts: { value: string; label: string }[] = [{ value: '0', label: '吉月' }];
   for (let m = 1; m <= 12; m++) {
     opts.push({ value: String(m), label: LUNAR_MONTH_LABELS_BASE[m - 1] });
     if (m === leapMonth) opts.push({ value: `L${m}`, label: `閏${LUNAR_MONTH_LABELS_BASE[m - 1]}` });
@@ -79,8 +80,15 @@ function buildSolarResult(y: number, m: number, d: number): { birthDate: string;
   try {
     const lunar = Solar.fromYmd(y, m, d).getLunar();
     const isLeap = lunar.getMonth() < 0;
+    // 農曆年不等於國曆年！春節之前的國曆日期，農曆仍屬前一年。
+    // 例：國曆 2018-02-01（民國107）→ 農曆 2017（民國106）臘月十六。
+    // 這裡若沿用國曆年，會寫出「民國107年農曆臘月十六」這種不存在的日期。
+    const lunarRoc = lunar.getYear() - 1911;
+    // 月份用專案自己的字表（依月數取），不要用函式庫的 getMonthInChinese()：
+    // 它十二月回傳簡體「腊」，與下拉選單的「臘」不一致，會導致回頭解析失敗。
+    const monthChinese = LUNAR_MONTH_VALUES[Math.abs(lunar.getMonth()) - 1];
     return {
-      birthDate: `民國${y - 1911}年農曆${isLeap ? '閏' : ''}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`,
+      birthDate: `民國${lunarRoc}年農曆${isLeap ? '閏' : ''}${monthChinese}月${lunar.getDayInChinese()}`,
       zodiac: SHENGXIAO_MAP[lunar.getYearShengXiao()] ?? ZodiacSign.RAT,
     };
   } catch { return null; }
@@ -161,14 +169,18 @@ interface BirthDatePickerProps {
    * @param zodiac 自動推算的生肖（可能為 undefined）
    */
   onChange: (birthDate: string, zodiac?: ZodiacSign) => void;
+  /** 只允許國曆輸入（隱藏農曆切換），自動換算農曆供檢視 */
+  solarOnly?: boolean;
+  /** 隱藏內建「生日」標題列（由外層自訂標題時使用） */
+  hideLabel?: boolean;
 }
 
 // ── 元件 ───────────────────────────────────────────────────────────────────────
 
-const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthDate, onChange }) => {
+const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthDate, onChange, solarOnly, hideLabel }) => {
   const parsedInitial = parseBirthDate(initBirthDate);
 
-  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(parsedInitial ? 'lunar' : 'solar');
+  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(solarOnly ? 'solar' : (parsedInitial ? 'lunar' : 'solar'));
   const [currentBirthDate, setCurrentBirthDate] = useState(initBirthDate);
 
   // 國曆下拉
@@ -188,7 +200,22 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
 
   const applySolar = (y: number, m: number, d: number, hour: string) => {
     const result = buildSolarResult(y, m, d);
-    const newDate = result ? result.birthDate + hour : hour;
+    let dateStr = result ? result.birthDate : '';
+    // solarOnly（法會/志工）模式：輸出同時含完整國曆與農曆，例「民國72年6月20日（農曆正月廿六）」
+    // 讓後台可拆成國曆／農曆兩欄。非 solarOnly 維持原本農曆字串不變。
+    if (result && solarOnly && y > 0 && m > 0 && d > 0) {
+      const solarRoc = y - 1911;
+      const parts = result.birthDate.match(/^民國(\d+)年(.+)$/);
+      const lunarRoc = parts ? Number(parts[1]) : solarRoc;
+      const lunarPart = parts ? parts[2] : result.birthDate; // 「農曆臘月十六」
+      // 春節前的日期，農曆年會比國曆年少一年。這種情況要把農曆年標出來，
+      // 否則「民國107年2月1日（農曆臘月十六）」會被讀成 107 年的臘月，差了整整一年。
+      const lunarLabel = lunarRoc === solarRoc
+        ? lunarPart
+        : lunarPart.replace(/^農曆/, `農曆${lunarRoc}年`);
+      dateStr = `民國${solarRoc}年${m}月${d}日（${lunarLabel}）`;
+    }
+    const newDate = dateStr + hour;
     setCurrentBirthDate(newDate);
     onChange(newDate, result?.zodiac);
   };
@@ -255,19 +282,21 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
 
   return (
     <div className="space-y-2">
-      {/* 國曆 / 農曆 切換 */}
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-600">生日</label>
-        <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
-          <button type="button" onClick={() => setInputMode('solar')}
-            className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-            國曆
-          </button>
-          <button type="button" onClick={() => setInputMode('lunar')}
-            className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-            農曆
-          </button>
-        </div>
+      {/* 國曆 / 農曆 切換（solarOnly 時隱藏，僅國曆輸入） */}
+      <div className={`flex items-center justify-between ${hideLabel ? 'hidden' : ''}`}>
+        <label className="text-xs font-medium text-gray-600">生日{solarOnly ? '（請填國曆，自動換算農曆）' : ''}</label>
+        {!solarOnly && (
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
+            <button type="button" onClick={() => setInputMode('solar')}
+              className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              國曆
+            </button>
+            <button type="button" onClick={() => setInputMode('lunar')}
+              className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              農曆
+            </button>
+          </div>
+        )}
       </div>
 
       {inputMode === 'solar' ? (
@@ -282,7 +311,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
               {SOLAR_MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <select value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
-              <option value={0}>吉</option>
+              <option value={0}>吉日</option>
               {Array.from({ length: solarMaxDays }, (_, i) => i + 1).map(d => (
                 <option key={d} value={d}>{d}日</option>
               ))}
@@ -311,7 +340,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
               {lunarMonthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <select value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
-              <option value={0}>吉</option>
+              <option value={0}>吉日</option>
               {LUNAR_DAYS.map((d, i) => <option key={i} value={i + 1}>{d}</option>)}
             </select>
           </div>

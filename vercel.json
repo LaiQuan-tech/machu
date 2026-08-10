@@ -1,5 +1,34 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
+      "source": "/booking",
+      "destination": "/booking.html"
+    },
+    {
+      "source": "/lamps",
+      "destination": "/lamps.html"
+    },
+    {
+      "source": "/blessing",
+      "destination": "/blessing.html"
+    },
+    {
+      "source": "/relocation",
+      "destination": "/relocation.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "0 1 * * *"
+    }
   ]
 }

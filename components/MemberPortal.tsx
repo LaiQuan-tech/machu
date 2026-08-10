@@ -323,17 +323,15 @@ const ContactFormModal = ({
             />
           </div>
 
-          {/* 電話（僅本人顯示） */}
-          {form.label === '本人' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">電話 *</label>
-              <input
-                type="tel" placeholder="0912-345-678"
-                value={form.phone} onChange={e => set('phone', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-              />
-            </div>
-          )}
+          {/* 電話（所有聯絡人皆可填，選填；前台表單帶入聯絡人時可一併帶電話） */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">電話 <span className="text-gray-400 font-normal">（選填）</span></label>
+            <input
+              type="tel" placeholder="0912-345-678"
+              value={form.phone} onChange={e => set('phone', e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+            />
+          </div>
 
           {/* 居住地址 */}
           <div>
@@ -1186,10 +1184,11 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
                           const kindLabel  = rec.kind === 'lamp' ? '點燈' : rec.kind === 'booking' ? '問事' : '祈福';
                           const kindColor  = rec.kind === 'lamp' ? 'bg-orange-100 text-orange-700' : rec.kind === 'booking' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
                           const kindIcon   = rec.kind === 'lamp' ? <Flame className="w-3 h-3" /> : rec.kind === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
+                          const statusStr = String(rec.status ?? '');   // status 可能為 null（後台手動建資料時），避免整頁白屏
                           const statusColor =
-                            (rec.status as string).includes('待') ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                            (rec.status as string).includes('確認') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                            (rec.status as string).includes('完成') ? 'bg-green-50 text-green-700 border border-green-200' :
+                            statusStr.includes('待') ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                            statusStr.includes('確認') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                            statusStr.includes('完成') ? 'bg-green-50 text-green-700 border border-green-200' :
                             'bg-gray-50 text-gray-500 border border-gray-200';
                           const dateStr = new Date(rec.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
                           return (

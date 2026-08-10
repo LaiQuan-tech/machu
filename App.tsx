@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
-  Calendar,
+  Calendar, ClipboardList,
   Clock,
   MapPin,
   Phone,
@@ -31,35 +31,55 @@ import {
   CheckCircle,
   ShoppingBag,
   Wrench,
-  BookOpen
+  BookOpen,
+  Landmark,
+  LoaderCircle
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getBookingSessions, getBookingCountsBySession, supabase } from './services/supabase';
+import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
-import AdminDashboard from './components/AdminDashboard';
-import ScripturePage from './components/ScripturePage';
-import MemberPortal from './components/MemberPortal';
+import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
+import SilkSheen, { SilkTiltPrompt } from './components/SilkSheen';
+import IncenseSmoke from './components/IncenseSmoke';
+import AboutPage from './components/AboutPage';
+import { renderInline, splitParagraphs } from './components/StoryPage';
+import RelocationPage from './components/RelocationPage';
+import { visibleSocials } from './components/SocialLinks';
+import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
+import faqContent from './content/faq.json';
+import { useScrollMotion } from './hooks/useScrollMotion';
+
+// 大型功能按需要才下載：後台含 Excel 套件，若跟首頁一起打包會讓每位訪客先載入用不到的程式。
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const ScripturePage = lazy(() => import('./components/ScripturePage'));
+const MemberPortal = lazy(() => import('./components/MemberPortal'));
+const FahuiRegistration = lazy(() => import('./components/FahuiRegistration'));
+const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistration'));
+
+const PageLoading = () => (
+  <div className="min-h-[100svh] bg-[#F5F0E8] flex items-center justify-center" role="status" aria-live="polite">
+    <div className="flex flex-col items-center gap-3 text-[#7C5C1E]">
+      <LoaderCircle className="w-7 h-7 animate-spin" aria-hidden="true" />
+      <span className="text-sm font-medium">頁面載入中</span>
+    </div>
+  </div>
+);
 
 // ── 工具函式 ────────────────────────────────────────────────────────────────────
 
-const LINE_URL = 'https://lin.ee/lj0gLqR';
-
-/** 點擊 LINE 按鈕：記錄導流來源後開啟官方帳號 */
-const handleLineClick = (source: string) => {
-  trackLineClick(source).catch(() => {});
-  window.open(LINE_URL, '_blank', 'noopener,noreferrer');
-};
+// LINE 網址與導流統計改放 services/lineLink.ts，讓報名表那些獨立元件也共用同一份
+// （它們原本各自寫死網址，既不計入統計、後台改網址也不會跟著換）
 
 /** 共用匯款資訊區塊 */
 const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+    <p className="font-bold text-amber-800 mb-1 flex items-center gap-1.5"><Landmark className="w-4 h-4" aria-hidden="true" />匯款資訊</p>
     <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
     <p className="text-amber-900">分行：大安分行</p>
     <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
@@ -72,8 +92,229 @@ const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
 
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
+
+/** 依序送出多筆，回傳成功筆數；中途失敗即停止（避免 Promise.all 部分成功後重送造成重複報名） */
+async function submitSequentially<T>(items: T[], send: (item: T) => Promise<unknown>): Promise<number> {
+  let ok = 0;
+  for (const item of items) {
+    try { await send(item); ok += 1; }
+    catch (err) { console.error(err); break; }
+  }
+  return ok;
+}
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
 const ENABLE_GROUP_BOOKING = false; // 揪團功能暫時停用，需要時設回 true
+
+// ── 頁面路由 ─────────────────────────────────────────────────────────────────
+// 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
+// 其餘內容仍是首頁上的區塊，靠捲動抵達。
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation';
+
+const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
+  booking: '/booking',
+  lamps: '/lamps',
+  blessing: '/blessing',
+  repair: '/repair',
+  // about 是首頁「關於我們」區塊的完整版，入口在該區塊的「更多」按鈕，
+  // 導覽列的「關於我們」仍然捲到首頁區塊，不換頁
+  about: '/about',
+  relocation: '/relocation',
+};
+
+/**
+ * 神尊修復暫時對外隱藏（廟方要求）。改回 true 就整個恢復，不必再動別的地方。
+ *
+ * 為什麼連路由一起關掉、而不是只拿掉導覽列的連結：
+ * `/repair` 上面有捐獻表單，只藏連結的話，舊連結或搜尋結果進來的人照樣能送出捐獻。
+ * 這裡讓 `/repair` 直接當成首頁處理，等於前端完全沒有這一頁。
+ * 後台的「神尊修復」分頁不受影響，資料與既有捐獻紀錄都還在。
+ */
+const ENABLE_REPAIR = false;
+
+const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
+
+const pageFromPath = (): SitePage => {
+  if (typeof window === 'undefined') return 'home';
+  const path = stripSlash(window.location.pathname);
+  if (!ENABLE_REPAIR && path === stripSlash(PAGE_PATHS.repair)) return 'home';
+  const hit = (Object.keys(PAGE_PATHS) as Array<Exclude<SitePage, 'home'>>)
+    .find(key => stripSlash(PAGE_PATHS[key]) === path);
+  return hit ?? 'home';
+};
+
+// ── 導覽列 ───────────────────────────────────────────────────────────────────
+// 主要項目直接列出，其餘收進「更多」下拉，避免導覽列過長。
+// kind='section' 的 id 對應首頁上的 <section id="…">，kind='page' 的 id 是獨立分頁。
+interface NavItem {
+  id: string;
+  label: string;
+  kind: 'section' | 'page';
+}
+
+/**
+ * 常見問題的**保底內容**。正式來源是資料庫 `faq_items`（後台「常見問題」分頁可編輯）；
+ * 資料表還沒建、或 Supabase 讀取失敗時才會用到這一份，前台不會開天窗。
+ *
+ * 這份 JSON 同時是 `scripts/prerender.js` 的保底：建置時它會先去資料庫抓，
+ * 抓不到才用這裡的內容產生 `<noscript>` 純文字。
+ */
+const FAQ_FALLBACK: { q: string; a: string }[] = faqContent.items;
+
+/**
+ * 把會員資料補進表單卡片。**只補空欄位**——使用者已經填過或改過的一律不動。
+ *
+ * 沒有任何欄位被補時回傳「原本那個物件」而不是複本：
+ * setState 拿到同一個參考就不會觸發重新渲染，避免打字打到一半被無謂地重繪。
+ *
+ * 泛型寫成 function 宣告而不是箭頭函式：本專案的 TSX 對泛型箭頭函式推導失敗（參數會變 unknown）。
+ */
+function fillEmptyFields<T extends Record<string, unknown>>(entry: T, defaults: Record<string, unknown>): T {
+  let changed = false;
+  const next: Record<string, unknown> = { ...entry };
+  for (const key of Object.keys(defaults)) {
+    const value = defaults[key];
+    if (value && !next[key]) { next[key] = value; changed = true; }
+  }
+  return changed ? (next as T) : entry;
+}
+
+const NAV_PRIMARY: NavItem[] = [
+  { id: 'home', label: '首頁', kind: 'section' },
+  { id: 'bulletin', label: '最新活動', kind: 'section' },
+  { id: 'about', label: '關於我們', kind: 'section' },
+  { id: 'deities', label: '祀奉神尊', kind: 'section' },
+  { id: 'relocation', label: '遷址捐款', kind: 'page' },
+  { id: 'booking', label: '預約問事', kind: 'page' },
+  { id: 'lamps', label: '祈福點燈', kind: 'page' },
+];
+
+// 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
+const DEITY_PAGE = 4;
+
+// 法會收件期間：根路徑以報名表取代官網首頁。主官網上線時改成 false 即可。
+const FAHUI_LANDING = true;
+
+/**
+ * 正式官網的網域。**在這些網域上，根路徑一律顯示官網首頁，不會被報名表蓋掉。**
+ *
+ * 為什麼要分兩邊：法會的宣傳連結全部發的是 machu-five.vercel.app，
+ * 那個網址必須維持「一點進來就是報名表」；而 heshengtan.tw 是正式官網，
+ * 點進來要看到首頁。同一份程式、兩種行為，差別只在網域。
+ *
+ * 用「官網網域清單」而不是「報名網域清單」的理由：漏列的情況要往安全的一邊倒。
+ * 新的預覽部署（machu-xxxx.vercel.app）沒列到就維持報名表，跟宣傳連結一致；
+ * 反過來寫的話，漏列會讓宣傳連結變成官網首頁，報名入口就消失了。
+ * 收件結束後把 FAHUI_LANDING 改 false，這份清單就自動失效，不必再回來清。
+ */
+const OFFICIAL_HOSTS = ['heshengtan.tw', 'www.heshengtan.tw'];
+const isOfficialHost = (): boolean =>
+  typeof window !== 'undefined' && OFFICIAL_HOSTS.includes(window.location.hostname);
+
+// Hero 輪播照片：已撤下把空間讓給特效。後台照片管理與資料照常運作，
+// 要恢復輪播時改成 true，並把 Hero 的背景區塊改回輪播 <img>。
+const HERO_SLIDESHOW = false;
+
+/**
+ * Hero 右側的三尊神明（廟方提供的原圖去背，程式碼在 scratchpad 的 cut2-lib.js，
+ * 手法記在 CLAUDE.md）。陣列順序＝畫面由左到右，也是由高到矮：
+ * 二媽最高、聖母次之、濟公最矮且是坐姿，形成往右下收的階梯。
+ * 每尊都備 WebP（主）與調色盤 PNG（後備，給不支援 WebP 透明的舊 Safari）。
+ * 留空陣列則整區不渲染，版面不會出現空洞。
+ *
+ * **三尊的「頭」要一樣大**，這是廟方的要求，也是這組數字的來源。
+ * 三張原圖的取景鬆緊不同，同樣把圖縮到一樣高，頭的大小差很多——
+ * 量過（各自縮到 560px 高時的臉寬）：二媽 74px、聖母 56px、濟公 75px，
+ * 也就是「臉寬 ÷ 圖高」＝ 0.132 / 0.100 / 0.134。
+ * 要讓頭一樣大，圖高就得與這個比例成反比：聖母那張取景最鬆，反而要放到最高。
+ * 桌機 64 / 84 / 63 vh 換算出來的臉寬都是 76px（原本二媽 90、聖母 59、濟公 65）。
+ *
+ * 排列的目標是廟方要的「**三張臉連成一直線、往右上揚 10 度**」。
+ * drop 是每尊各自往畫面下方沉多少，數字是解出來的，不是試出來的：
+ *   臉在畫面上的高度 = 100vh + drop − 圖高 + 臉在圖中的相對位置 × 圖高
+ * 三張臉的水平間距由各自的寬度與交疊決定，再乘 tan(10°) 就是該有的高低差。
+ * 量到的臉部位置（佔各自圖片的比例）：濟公 (0.46, 0.22)、聖母 (0.506, 0.366)、二媽 (0.585, 0.29)。
+ *
+ * **同一個斷點內，所有尺寸必須用同一種單位**，混用角度就會跑掉。
+ * 桌機整組用 vh（高度決定氣勢，寬度跟著長寬比走）；
+ * **手機整組用 vw**——手機的痛點是「三尊要貼齊左右兩邊」，
+ * 用 vh 算出來的總寬只有在某一個螢幕比例下剛好等於螢幕寬，
+ * 換一支比較寬的手機兩邊就空一大塊。改用 vw 之後總寬永遠是螢幕寬的 98%，
+ * 而且寬高同單位，10 度也一樣不受影響。
+ *
+ * 目前的三張是廟方自己去背的（Photoroom），取景與我先前那批差很多——
+ * 二媽換成 DSC04857，她在畫面裡小得多、臉的位置也高得多。
+ * 這反而讓幾何變寬鬆：她臉以下的身體變多，抬高也構得到畫面底部，
+ * 所以現在 10 度與 30 度都能做到三尊全部踩底（30 度也可行，是廟方選了 10 度）。
+ *
+ * **size 跟著神尊走、drop 跟著位置走。** size 是為了讓頭一樣大而綁定該張圖的
+ * （高度比 54:68:94 來自「臉寬÷圖高」＝0.1293/0.1032/0.0743 的倒數；
+ * 二媽要放到 94vh 才追得上另外兩尊的頭，因為她那張拍得最遠）；
+ * 動到任何一個數字，drop 都要用上面的式子重算一遍。
+ *
+ * **layer（前後關係）**：矮的在前、高的在後，像神桌的排法。
+ * 預設的繪製順序是「後面的蓋前面的」，於是聖母會壓在濟公臉上；
+ * 反過來之後濟公整張臉露出來，而且不會反過來擋到聖母——
+ * 聖母的臉比濟公高，落在濟公圖片「帽子以上」的透明區。
+ *
+ * **gap（交疊）是每尊各自一個**，兩段分開配才能讓三張臉都露出來：
+ * 交疊太多，後一尊的圖框就會壓到前一尊的臉。兩段的上限分別是
+ * o1 ≤ (1−0.46)×濟公寬、o2 ≤ 0.585×二媽寬——也就是「臉到自己圖框邊緣」的距離。
+ * 手機用 22 / 36 vw 同時滿足兩條，代價是三尊總寬變成 111vw，
+ * 左右各有 5vw 被畫面裁掉（裁到的是濟公的左袖與二媽的右袍襬，不是臉）。
+ * 桌機兩段都是 14vh，那裡的間距本來就夠，沒有互相擋臉的問題。
+ *
+ * 舊的三張（hero-deity-left/center/right）先留在 public/，確認新版沒問題再刪。
+ */
+/**
+ * Hero 的三尊神尊。
+ *
+ * **手機（未加 sm: 的那組）用 vw、桌機（sm:）用 vh，同一個斷點內單位必須一致**，
+ * 否則畫面比例一變，三尊的相對大小與重疊量就會各走各的，臉的連線也就歪了。
+ *
+ * 桌機那組每個 vh 都包一層 `min(A vh, A×0.9 vw)`（**0.9 這個比例七個值要一起改**）。
+ * 為什麼需要：平板直立（iPad 第十代 820×1180）時螢幕又高又窄，純 vh 會讓整組寬到
+ * 949px 卻只有 820px 可放，最左邊的濟公被切掉將近一半。加上 vw 上限之後，
+ * 高瘦畫面自動改由寬度決定尺寸，三個高度與兩個重疊量同步縮放，構圖與臉的連線都不變。
+ * 判定門檻是長寬比 1.163：比這寬（一般桌機、筆電、平板橫放）走 vh，桌機完全不受影響；
+ * 比這窄（平板直立）走 vw。
+ *
+ * `sm:max-w-none`：原本的 `sm:max-w-[44/52/60vw]` 是防呆上限，但三個加起來是 156vw，
+ * 在窄螢幕上三個同時觸頂，反而變成「寬度被撐開」的元凶。高度改用 min() 之後
+ * 寬度自然受限於畫面寬，這層上限沒有必要，留著只會壞事。
+ *
+ * 負邊距寫成 `mb-[calc(...*-1)]` 而不是 `-mb-[...]`：Tailwind 對後者會產出
+ * `margin-bottom: -calc(...)`，那是無效的 CSS。
+ */
+const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
+  { src: '/hero-jigong.webp', fallback: '/hero-jigong.png', name: '濟公活佛',
+    size: 'h-[69vw] max-w-[70vw] sm:h-[min(54vh,48.6vw)] sm:max-w-none',
+    drop: '-mb-[15.4vw] sm:mb-[calc(min(12vh,10.8vw)*-1)]', layer: 'z-[3]' },
+  { src: '/hero-mazu.webp',   fallback: '/hero-mazu.png',   name: '天上聖母',
+    size: 'h-[86.5vw] max-w-[80vw] sm:h-[min(68vh,61.2vw)] sm:max-w-none',
+    drop: '-mb-[10.8vw] sm:mb-[calc(min(7.8vh,7.02vw)*-1)]',
+    gap: '-ml-[22vw] sm:ml-[calc(min(14vh,12.6vw)*-1)]', layer: 'z-[2]' },
+  // 二媽在最右、位置最高，是視覺主角，優先權給她（index.html 的 preload 也是這一張，兩邊要一致）
+  { src: '/hero-erma.webp',   fallback: '/hero-erma.png',   name: '天上聖母（二媽）',
+    size: 'h-[120vw] max-w-[92vw] sm:h-[min(94vh,84.6vw)] sm:max-w-none',
+    drop: '-mb-[35.6vw] sm:mb-[calc(min(24.8vh,22.32vw)*-1)]',
+    gap: '-ml-[36vw] sm:ml-[calc(min(14vh,12.6vw)*-1)]', layer: 'z-[1]', priority: true },
+];
+
+// 志工報名有自己的網址 /volunteer：可單獨分享，瀏覽器上一頁也能正確返回。
+// 放模組層級是因為 useState 的初始值會在元件內的 const 宣告之前就呼叫到它。
+const VOLUNTEER_PATH = '/volunteer';
+const isVolunteerUrl = (): boolean =>
+  typeof window !== 'undefined'
+  && (stripSlash(window.location.pathname) === VOLUNTEER_PATH
+    || new URLSearchParams(window.location.search).has('volunteer'));
+
+const NAV_MORE: NavItem[] = [
+  { id: 'blessing', label: '祈福活動', kind: 'page' },
+  // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
+  ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
+  { id: 'donation', label: '隨喜捐獻', kind: 'section' },
+  { id: 'faq', label: '常見問題', kind: 'section' },
+];
 
 interface LampPersonEntry {
   id: string;
@@ -126,16 +367,87 @@ interface BlessingPersonEntry {
 // 水墨筆刷分隔線元件
 
 const App: React.FC = () => {
+  // ?admin=1 → 顯示正常首頁並自動跳出管理員登入（上線前報名表蓋住首頁時的後台入口）
+  const adminEntry = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
+  // /volunteer 或 ?volunteer=1 → 直接開志工報名（可單獨分享的網址）
+  const volunteerEntry = typeof window !== 'undefined'
+    && (window.location.pathname.replace(/\/+$/, '') === '/volunteer'
+      || new URLSearchParams(window.location.search).has('volunteer'));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [showScripture, setShowScripture] = useState(false);
-  const [activeSection, setActiveSection] = useState('home');
+  const [page, setPage] = useState<SitePage>(pageFromPath);
+  // 全站的進場與視差引擎（掛一次，掃全document）。元素只要掛 .sr / .sr-figure / .sr-counter
+  useScrollMotion();
+  // 從分頁點首頁區塊時，要先切回首頁、等區塊掛上 DOM 才捲得到；用這個暫存待捲目標
+  const pendingScrollRef = useRef<string | null>(null);
+  // 點導覽後的平滑捲動期間，暫時停掉捲動高亮（值是解鎖時間戳）。
+  // 不鎖的話：捲動途中會依序掃過中間每個區塊，高亮一路亂跳；
+  // 更糟的是平滑捲動被觸控板碰一下就會停在半路，最後一次捲動事件就把高亮定在上一個區塊。
+  const navLockRef = useRef(0);
+  // 直接輸入 /blessing 這類網址進來時，導覽要亮在該分頁上，不能固定從 'home' 起算
+  const [activeSection, setActiveSection] = useState<string>(pageFromPath);
   const [isScrolled, setIsScrolled] = useState(false);
+  // 捲過 Hero 沒有？LINE 浮動鈕在 Hero 停留期間先收起來，不擋住三尊神明與宮壇名。
+  const [pastHero, setPastHero] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
+  // 法會收件期間，根路徑直接顯示報名表蓋住官網首頁；主官網上線時把 FAHUI_LANDING 改成 false。
+  // 服務分頁（/booking 等）有自己的網址，不受此影響——否則上一頁／下一頁會被報名表吃掉。
+  // 正式官網網域（heshengtan.tw）例外：那裡一律顯示官網首頁，見 OFFICIAL_HOSTS。
+  const shouldShowFahui = (): boolean =>
+    FAHUI_LANDING && !isOfficialHost() && !adminEntry && !isVolunteerUrl() && pageFromPath() === 'home';
+  const [showFahui, setShowFahui] = useState(shouldShowFahui);
+  const [showVolunteer, setShowVolunteer] = useState(volunteerEntry);
+
+  // 分頁標題跟著畫面換。兩個理由：
+  // (1) 一份 index.html 服務兩個網域，靜態 <title> 只能有一個（現在是法會版，
+  //     因為宣傳連結分享到 LINE 時要看到報名的標題），但官網進來看到的是首頁；
+  // (2) 各分頁有自己的預渲染 HTML 與標題（scripts/prerender.js），
+  //     React 接手後若不跟著換，使用者的分頁標題會被蓋成同一個。
+  // **這裡的文案要與 scripts/prerender.js 的 ROUTES 一致**，否則爬蟲看到的和人看到的會不一樣。
+  // 注意：這只影響瀏覽器分頁。分享預覽是爬蟲讀靜態 HTML、不跑 JS，由 og:title 決定。
+  useEffect(() => {
+    const titles: Record<SitePage, string> = {
+      home:       '台北古亭和聖壇｜問事、祈福點燈與法會服務',
+      about:      '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
+      booking:    '預約問事｜台北古亭和聖壇',
+      lamps:      '祈福點燈｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
+      blessing:   '祈福法會報名｜台北古亭和聖壇',
+      relocation: '遷址捐款｜護持和聖壇道場遷址',
+      repair:     '神尊修復｜台北古亭和聖壇',
+    };
+    document.title = showFahui
+      ? '和聖壇法會線上報名｜佛道兩儀慈悲普渡禮懺法會'
+      : titles[page];
+  }, [showFahui, page]);
+  const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(adminEntry);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const openVolunteer =(prefill?: { name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string }) => {
+    setVolunteerPrefill(prefill);
+    setShowVolunteer(true);
+    window.scrollTo({ top: 0 });
+    if (!isVolunteerUrl()) window.history.pushState({ volunteer: true }, '', VOLUNTEER_PATH);
+  };
+
+  const closeVolunteer = () => {
+    setShowVolunteer(false);
+    if (isVolunteerUrl()) window.history.pushState({}, '', '/');
+  };
+
+  useEffect(() => {
+    const onPop = () => {
+      const vol = isVolunteerUrl();
+      setShowVolunteer(vol);
+      setShowFahui(shouldShowFahui());
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [adminEntry]);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -149,9 +461,18 @@ const App: React.FC = () => {
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
   const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
+  // 首頁摘要取後台第一個顯示中的段落；還沒載入或沒資料時用下面寫死的保底文案
+  const [aboutLead, setAboutLead] = useState<AboutSection | null>(null);
+  // 首頁遷址捐款區塊＝後台「遷址捐款」第一個顯示中的段落
+  const [relocationLead, setRelocationLead] = useState<AboutSection | null>(null);
+  // 首頁摘要可在後台單獨寫；留空則退回 /relocation 的第一段
+  const [relocationHome, setRelocationHome] = useState<RelocationHome>({ heading: '', body: '' });
+  const [aboutFacts, setAboutFacts] = useState<AboutFacts>(DEFAULT_ABOUT_FACTS);
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [deityHalls, setDeityHalls] = useState<HallRecord[]>([]);
   const [selectedHall, setSelectedHall] = useState<string | null>(null);
+  // 祀奉神尊：先顯示一批，按「更多」再展開一批
+  const [deityShown, setDeityShown] = useState(DEITY_PAGE);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   // ── 點燈多人 ──
   const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
@@ -159,6 +480,8 @@ const App: React.FC = () => {
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
+  /** 常見問題。先用保底內容渲染，資料庫回來再換掉——避免首屏空一塊 */
+  const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>(FAQ_FALLBACK);
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberPortalPendingPhone, setMemberPortalPendingPhone] = useState('');
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
@@ -190,20 +513,23 @@ const App: React.FC = () => {
       if (error) {
         setLoginError('帳號或密碼錯誤，請再試一次。');
       } else {
-        // 抓取帳號的權限組別（查無資料時預設 admin）
+        // 僅 admin_profiles 內有設定的帳號才能進後台；查無權限即登出拒絕
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('admin_profiles')
-            .select('role')
-            .eq('user_id', user.id)
-            .single();
-          setAdminRole((profile?.role as AdminRole) ?? 'admin');
+        const { data: profile } = await supabase
+          .from('admin_profiles')
+          .select('role')
+          .eq('user_id', user?.id)
+          .maybeSingle();
+        if (!profile) {
+          await supabase.auth.signOut();
+          setLoginError('此帳號無後台管理權限。');
+        } else {
+          setAdminRole(profile.role as AdminRole);
+          setShowAdmin(true);
+          setShowLoginModal(false);
+          setLoginEmail('');
+          setLoginPassword('');
         }
-        setShowAdmin(true);
-        setShowLoginModal(false);
-        setLoginEmail('');
-        setLoginPassword('');
       }
     } catch {
       setLoginError('登入失敗，請稍後再試。');
@@ -227,12 +553,15 @@ const App: React.FC = () => {
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
 
   // ── 捐獻多人 ──
-  const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
+  const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', gender: '', address: '', amount: 0, type: DonationType.GENERAL, contactLabel: '本人' }]);
   const [donationNotes, setDonationNotes] = useState('');
   const [repairProjects, setRepairProjects] = useState<RepairProject[]>([]);
+  const [social, setSocial] = useState<SocialSettings>(DEFAULT_SOCIAL);
   const [repairProjectTotals, setRepairProjectTotals] = useState<Record<string, number>>({});
-  const [repairPage, setRepairPage] = useState(0);
-  const REPAIR_PER_PAGE = 6;
+  // 神尊超過十尊：改為「先顯示一批＋顯示更多」，不用數字分頁。
+  // 數字分頁在募款情境是負面的——第二頁以後的神尊幾乎不會被看到。
+  const [repairShown, setRepairShown] = useState(6);
+  const REPAIR_PAGE_SIZE = 6;
   const [repairSelectedProj, setRepairSelectedProj] = useState<RepairProject | null>(null);
   const [repairName, setRepairName] = useState('');
   const [repairAmount, setRepairAmount] = useState(0);
@@ -241,8 +570,15 @@ const App: React.FC = () => {
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
 
+  /**
+   * 首頁輪播的自動換頁計時器。
+   * 輪播照片已從 Hero 撤下（空間留給特效），所以這裡直接不啟動——
+   * 否則會每 5 秒觸發一次沒有人看的 state 更新，白白重繪整個首頁。
+   * 資料與後台照片管理都保留，要恢復輪播時把 return 拿掉即可。
+   */
   const startHeroInterval = (totalSlides: number) => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+    if (!HERO_SLIDESHOW) return;
     if (totalSlides <= 1) return;
     heroIntervalRef.current = setInterval(() => {
       setHeroSlideIndex(prev => (prev + 1) % totalSlides);
@@ -275,11 +611,17 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // 常見問題：讀不到就沿用保底內容，不寫 console.error（表還沒建對訪客不是錯誤）
+    getFaqItems()
+      .then(rows => { if (rows.length) setFaqItems(rows.map(r => ({ q: r.question, a: r.answer }))); })
+      .catch(() => {});
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getDeityHalls().then(setDeityHalls).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
+    // 社群帳號：後台可改，留空的平台前台不顯示
+    getSocialSettings().then(s => { setSocial(s); setLineUrl(s.lineUrl); }).catch(console.error);
     Promise.all([getRepairProjects(), getRepairProjectTotals()])
       .then(([projects, totals]) => {
         setRepairProjects(projects.filter(p => p.isActive));
@@ -290,6 +632,13 @@ const App: React.FC = () => {
         if (img.sectionKey === 'about') setAboutImageUrl(getSiteImagePublicUrl(img.storagePath));
       }
     }).catch(console.error);
+    // 首頁「關於我們」摘要＝後台第一個顯示中的段落，與 /about 同一份資料，改一次兩邊同步
+    getAboutSections().then(rows => setAboutLead(rows[0] ?? null))
+      .catch(e => console.warn('讀取關於我們段落失敗，首頁改用保底文案:', e));
+    getAboutFacts().then(setAboutFacts).catch(() => {});
+    getAboutSections(false, 'relocation').then(rows => setRelocationLead(rows[0] ?? null))
+      .catch(e => console.warn('讀取遷址段落失敗:', e));
+    getRelocationHome().then(setRelocationHome).catch(() => {});
     getHeroSlides().then(slides => {
       setHeroSlides(slides);
       startHeroInterval(slides.length);
@@ -302,7 +651,9 @@ const App: React.FC = () => {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setMember(session?.user ?? null);
-      if (session?.user) { loadMemberContacts(); loadMemberProfile(); }
+      // setTimeout 脫離 onAuthStateChange callback：內部會再呼叫 auth.getUser()，
+      // 在 callback 內同步呼叫有 supabase-js 已知的 auth lock 死鎖風險
+      if (session?.user) { setTimeout(() => { loadMemberContacts(); loadMemberProfile(); }, 0); }
       else { setMemberContacts([]); setMemberProfile(null); }
     });
 
@@ -313,31 +664,46 @@ const App: React.FC = () => {
         if (!session) return;
         setSharedSession(session);
         if (localStorage.getItem(`shared_creator_${shareId}`) === 'true') setIsCreator(true);
-        setTimeout(() => scrollToSection(
-          session.serviceType === 'lamp'     ? 'lamps'    :
-          session.serviceType === 'blessing' ? 'blessing' : 'booking'
-        ), 600);
+        // 共享報名連結：三種服務都已獨立成頁，直接切過去（不再用捲動）
+        const target: SitePage =
+          session.serviceType === 'lamp' ? 'lamps' :
+          session.serviceType === 'blessing' ? 'blessing' : 'booking';
+        setPage(target);
+        setActiveSection(target);
       });
     }
 
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 30);
-      // 依捲動位置更新 nav active（由下往上找第一個頂部已進入視窗的區塊）
+      // Hero 是滿版高度，捲過七成就算離開了——等捲滿一整屏才顯示會慢半拍。
+      setPastHero(window.scrollY > window.innerHeight * 0.7);
+      // 只有首頁需要捲動高亮；在獨立分頁時導覽亮的是該分頁本身，不該被捲動改掉
+      if (pageFromPath() !== 'home') return;
+      // 使用者剛點了導覽：平滑捲動還在飛，先不要讓捲動高亮插手（見 navLockRef）
+      if (performance.now() < navLockRef.current) return;
+      // 由下往上找第一個「已經捲進來」的區塊。四項服務已移出首頁，這裡只剩首頁上的區塊。
+      // 判定線用視窗高度的比例而不是固定 120px：section 的 scroll-margin-top 是 80px，
+      // 捲到定位時區塊頂端就落在 80，跟 120 只差 40——平滑捲動少捲 41px（觸控板碰一下、
+      // 或圖片載入把版面往下推）高亮就會退回上一個區塊。這正是「點祀奉神尊卻亮關於我們」的成因。
+      const line = Math.max(120, Math.min(window.innerHeight * 0.35, 300));
+      // relocation-intro／services 是首頁區塊：前者對應導覽的「遷址捐款」，
+      // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進隨喜捐獻。
       const pairs: [string, string][] = [
-        ['donation', 'donation'], ['repair', 'donation'],
-        ['blessing', 'blessing'], ['lamps', 'lamps'],
-        ['booking', 'booking'], ['deities', 'deities'],
-        ['about', 'about'], ['home', 'home'],
+        ['faq', 'faq'], ['donation', 'donation'], ['relocation-intro', 'relocation'], ['deities', 'deities'],
+        ['about', 'about'], ['bulletin', 'bulletin'], ['home', 'home'],
       ];
       for (const [id, navId] of pairs) {
         const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= 120) {
+        if (el && el.getBoundingClientRect().top <= line) {
           setActiveSection(navId);
           return;
         }
       }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
+    // 先跑一次：重新整理時瀏覽器會還原捲動位置，只掛監聽的話要等使用者再捲一下，
+    // 導覽列與 LINE 浮動鈕會停在「還在最頂端」的狀態。
+    handleScroll();
     return () => {
       window.removeEventListener('scroll', handleScroll);
       if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
@@ -345,14 +711,102 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // 會員資料載入後，自動填入尚未填地址的人員欄位
+  /**
+   * 會員本人的預填值。四個表單共用，各自取自己有的欄位
+   * （捐獻沒有生日／生肖，所以不能一律整包塞，會混進表單型別沒有的欄位）。
+   */
+  const selfDefaults = {
+    name:      memberProfile?.name ?? '',
+    gender:    memberProfile?.gender ?? '',
+    address:   memberProfile?.address ?? '',
+  };
+  const selfWithBirth = {
+    ...selfDefaults,
+    birthDate: memberProfile?.birthDate ?? '',
+    zodiac:    memberProfile?.zodiac,
+  };
+
+  /**
+   * 會員資料載入後自動帶入，讓已登入的人不必每次重打自己的姓名生日地址。
+   *
+   * 兩層規則：
+   *   1. 標記為「本人」的那張卡片 → 姓名、生日、生肖、性別、地址全部帶入；
+   *   2. 其他人的卡片（父母親、兒女…）→ 只帶地址。姓名生日當然是別人的，不能亂填，
+   *      但地址多半同戶，帶入省事；這是原本就有的行為，保留。
+   * 兩層都只補「還沒填的欄位」，使用者改過的一律不動。
+   *
+   * 依賴整個 memberProfile 而不是單一欄位：會員在會員中心補填資料後要能立刻反映。
+   */
   useEffect(() => {
-    const addr = memberProfile?.address;
-    if (!addr) return;
-    setLampPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
-    setBookingPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
-    setBlessingPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
-  }, [memberProfile?.address]);
+    const prof = memberProfile;
+    if (!prof) return;
+    const addr = prof.address;
+    const fillOthers = <T extends { address: string }>(e: T): T => (addr && !e.address ? { ...e, address: addr } : e);
+    const isSelf = (label?: string): boolean => label === '本人';
+
+    /**
+     * 有生日欄位的卡片：帶入之後要遞增 `_bKey`。
+     * BirthDatePicker 的年／月／日是自己的內部狀態，只在掛載時從 value 初始化一次；
+     * 光改 birthDate 字串它不會跟著動，畫面上三個下拉會停在空值（實測過）。
+     * key 帶著 `_bKey` 所以遞增等於強制重新掛載——通訊錄選取走的也是這條路。
+     */
+    const fillSelfCard = <T extends { birthDate: string; _bKey?: number }>(e: T): T => {
+      const next = fillEmptyFields(e, selfWithBirth);
+      if (next === e) return e;
+      return next.birthDate !== e.birthDate ? { ...next, _bKey: (e._bKey ?? 0) + 1 } : next;
+    };
+
+    setLampPersons(prev => prev.map(e => isSelf(e.contactLabel) ? fillSelfCard(e) : fillOthers(e)));
+    setBookingPersons(prev => prev.map(e => isSelf(e.contactLabel) ? fillSelfCard(e) : fillOthers(e)));
+    setBlessingPersons(prev => prev.map(e => isSelf(e.contactLabel) ? fillSelfCard(e) : fillOthers(e)));
+    setDonationPersons(prev => prev.map(e => isSelf(e.contactLabel) ? fillEmptyFields(e, selfDefaults) : fillOthers(e)));
+    // 神尊修復只有一個姓名欄位，沒有卡片結構
+    setRepairName(prev => prev || (prof.name ?? ''));
+  }, [memberProfile]);
+
+  /**
+   * 常見問題的 FAQPage 結構化資料，在**執行期**依當下的內容重新產生。
+   *
+   * 為什麼不留給預渲染就好：FAQ 改成後台可編輯之後，`scripts/prerender.js` 產出的那份
+   * 是建置當下的快照，廟方一改就過期。Google 會執行 JavaScript，所以由這裡覆蓋之後
+   * **它看到的標記與畫面上的問答永遠一致**——標記與內容對不上正是 FAQPage 最容易踩的雷。
+   *
+   * 兩個必須遵守的細節：
+   *  (1) 先移除預渲染留下的那份，否則同一頁會有兩個 FAQPage 節點；
+   *  (2) **只有首頁才掛**。分頁上看不到問答區塊，掛了就是「標記的內容使用者看不到」。
+   *      換頁時要主動清掉，SPA 不會自己重載 <head>。
+   */
+  useEffect(() => {
+    const ID = 'faq-jsonld';
+    const onHome = page === 'home' && !showFahui;
+
+    // 預渲染注入的那份沒有 id，用內容認出來
+    document.querySelectorAll('script[type="application/ld+json"]').forEach(el => {
+      if (el.id !== ID && /"FAQPage"/.test(el.textContent ?? '')) el.remove();
+    });
+
+    const existing = document.getElementById(ID);
+    if (!onHome || faqItems.length === 0) { existing?.remove(); return; }
+
+    const el = (existing as HTMLScriptElement | null) ?? (() => {
+      const node = document.createElement('script');
+      node.type = 'application/ld+json';
+      node.id = ID;
+      document.head.appendChild(node);
+      return node;
+    })();
+    el.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      '@id': 'https://heshengtan.tw/#faq',
+      inLanguage: 'zh-TW',
+      mainEntity: faqItems.map(item => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    }, null, 2);
+  }, [faqItems, page, showFahui]);
 
   // ── 問事場次 ──
   useEffect(() => {
@@ -366,26 +820,43 @@ const App: React.FC = () => {
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
+  /** 會員已登入但尚未填聯絡電話時，擋下送出並導引補填（避免電話存成空字串、廟方無法聯絡） */
+  const requireMemberPhone = (): boolean => {
+    if (member && !memberProfile?.phone) {
+      alert('請先至會員中心填寫聯絡電話，以便廟方與您聯繫。');
+      setShowMemberPortal(true);
+      return false;
+    }
+    return true;
+  };
+
+  /** 部分成功時：保留未成功名單、提示使用者勿重複填寫已成功者 */
+  const alertPartialFailure = (ok: number) => {
+    alert(`前 ${ok} 位已成功送出，其後的資料送出失敗。已為您保留尚未成功的名單，請確認網路後再按一次送出（已成功者請勿重複填寫）。`);
+  };
+
   // ── 點燈送出（批次） ──
   const handleLampSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const invalid = lampPersons.find(p => !p.serviceId || !p.name.trim());
     if (invalid) { alert('請填寫所有人員的服務項目與姓名。'); return; }
+    if (!requireMemberPhone()) return;
     setLampStatus('loading');
-    try {
-      await Promise.all(lampPersons.map(p => submitLampRegistration({
-        serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
-      })));
-      if (member) {
-        autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-          .then(() => loadMemberContacts()).catch(() => {});
-      }
-      setLampStatus('success');
-      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', contactLabel: '本人' }]);
-      setLampNotes('');
-    } catch {
+    const ok = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
+      serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
+    }));
+    if (ok < lampPersons.length) {
+      if (ok > 0) { setLampPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setLampStatus('error');
+      return;
     }
+    if (member) {
+      autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
+    }
+    setLampStatus('success');
+    setLampPersons([{ id: newId(), serviceId: '', ...selfWithBirth, contactLabel: '本人' }]);
+    setLampNotes('');
   };
 
   // ── 問事送出（批次） ──
@@ -394,24 +865,30 @@ const App: React.FC = () => {
     if (!selectedSessionId) { alert('請選擇問事場次。'); return; }
     const selectedSession = bookingSessions.find(s => s.id === selectedSessionId);
     if (!selectedSession) { alert('場次不存在，請重新選擇。'); return; }
-    const sessionRemaining = selectedSession.maxSlots - (sessionCounts[selectedSessionId] || 0);
-    if (bookingPersons.length > sessionRemaining) { alert(`此場次剩餘 ${sessionRemaining} 位，您共填寫 ${bookingPersons.length} 人，請減少人數或選擇其他場次。`); return; }
+    if (!requireMemberPhone()) return;
+    // 送出前重抓一次即時名額，降低超賣機率
+    const freshCounts = await getBookingCountsBySession().catch(() => sessionCounts);
+    setSessionCounts(freshCounts);
+    const sessionRemaining = selectedSession.maxSlots - (freshCounts[selectedSessionId] || 0);
+    if (bookingPersons.length > sessionRemaining) { alert(`此場次剩餘 ${Math.max(0, sessionRemaining)} 位，您共填寫 ${bookingPersons.length} 人，請減少人數或選擇其他場次。`); return; }
     setBookingStatus('loading');
-    try {
-      await Promise.all(bookingPersons.map(p => submitBooking({
-        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
-        bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: p.notes || undefined,
-      })));
-      if (member) {
-        autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-          .then(() => loadMemberContacts()).catch(() => {});
-      }
-      setBookingStatus('success');
-      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
-    } catch (error) {
-      console.error(error);
+    const ok = await submitSequentially(bookingPersons, (p: BookingPersonEntry) => submitBooking({
+      name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
+      bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: p.notes || undefined,
+    }));
+    // 無論成敗都刷新名額顯示
+    getBookingCountsBySession().then(setSessionCounts).catch(() => {});
+    if (ok < bookingPersons.length) {
+      if (ok > 0) { setBookingPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setBookingStatus('error');
+      return;
     }
+    if (member) {
+      autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
+    }
+    setBookingStatus('success');
+    setBookingPersons([{ id: newId(), ...selfWithBirth, type: ConsultationType.CAREER, contactLabel: '本人' }]);
   };
 
   // ── 捐獻送出（批次） ──
@@ -419,24 +896,26 @@ const App: React.FC = () => {
     e.preventDefault();
     const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
+    if (!requireMemberPhone()) return;
     setDonationStatus('loading');
-    try {
-      await Promise.all(donationPersons.map(p => {
-        const proj = repairProjects.find(r => r.id === p.repairProjectId);
-        return submitDonation({
-          name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone,
-          gender: p.gender || undefined, address: p.address || undefined,
-          contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
-          repairProjectId:   proj?.id,
-          repairProjectName: proj?.name,
-        });
-      }));
-      setDonationStatus('success');
-      setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
-      setDonationNotes('');
-    } catch {
+    const ok = await submitSequentially(donationPersons, (p: DonationPersonEntry) => {
+      const proj = repairProjects.find(r => r.id === p.repairProjectId);
+      return submitDonation({
+        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone,
+        gender: p.gender || undefined, address: p.address || undefined,
+        contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
+        repairProjectId:   proj?.id,
+        repairProjectName: proj?.name,
+      });
+    });
+    if (ok < donationPersons.length) {
+      if (ok > 0) { setDonationPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setDonationStatus('error');
+      return;
     }
+    setDonationStatus('success');
+    setDonationPersons([{ id: newId(), ...selfDefaults, amount: 0, type: DonationType.GENERAL, contactLabel: '本人' }]);
+    setDonationNotes('');
   };
 
   // ── 祈福送出 ──
@@ -450,81 +929,135 @@ const App: React.FC = () => {
       alert('請為每位報名者選擇護持方案');
       return;
     }
+    if (!requireMemberPhone()) return;
     setBlessingStatus('loading');
-    try {
-      await Promise.all(blessingPersons.map(async p => {
-        const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
-        const eventAddons = blessingModal.addons || [];
-        const selectedAddons: BlessingAddon[] = [
-          // 固定品項：勾選即加入
-          ...eventAddons.filter(a => !a.voluntary && (p.selectedAddonIds || []).includes(a.id)),
-          // 隨喜品項：有金額（≥1）才加入，fee 用自填值
-          ...eventAddons
-            .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
-            .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
-        ];
-        const claimedOfferings = (blessingModal.offerings || [])
-          .filter(o => (p.claimedOfferingIds || []).includes(o.id))
-          .map(o => ({ id: o.id, name: o.name }));
-        await createBlessingRegistration({
-          eventId: blessingModal.id,
-          name: p.name.trim(),
-          phone: member ? (memberProfile?.phone ?? '') : guestPhone,
-          birthDate: p.birthDate || undefined,
-          zodiac: p.zodiac,
-          gender: p.gender || undefined,
-          address: p.address || undefined,
-          notes: blessingNotes || undefined,
-          packageName: pkg?.name,
-          packageFee:  pkg?.fee,
-          selectedAddons:   selectedAddons.length   > 0 ? selectedAddons   : undefined,
-          claimedOfferings: claimedOfferings.length > 0 ? claimedOfferings : undefined,
-        } as BlessingRegistrationData);
-        // 隨喜供養金額同步寫入捐獻記錄
-        const addonTotal = selectedAddons.reduce((sum, a) => sum + (a.fee || 0), 0);
-        if (addonTotal > 0) {
-          await submitDonation({
-            name: p.name.trim(),
-            phone: member ? (memberProfile?.phone ?? '') : guestPhone,
-            gender: p.gender || undefined,
-            address: p.address || undefined,
-            amount: addonTotal,
-            type: DonationType.EVENT,
-            notes: `祈福活動「${blessingModal.title}」隨喜供養`,
-          });
-        }
-      }));
-      if (member) {
-        autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-          .then(() => loadMemberContacts()).catch(() => {});
-      }
-      setBlessingStatus('success');
-      setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
-      setBlessingNotes('');
-    } catch {
+    // 加購金額已包含在報名記錄的 selected_addons 內，後台應收管理會直接計算；
+    // 不再另寫一筆捐獻記錄，避免同一筆金額重複入帳。
+    const ok = await submitSequentially(blessingPersons, (p: BlessingPersonEntry) => {
+      const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
+      const eventAddons = blessingModal.addons || [];
+      const selectedAddons: BlessingAddon[] = [
+        // 固定品項：勾選即加入
+        ...eventAddons.filter(a => !a.voluntary && (p.selectedAddonIds || []).includes(a.id)),
+        // 隨喜品項：有金額（≥1）才加入，fee 用自填值
+        ...eventAddons
+          .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
+          .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
+      ];
+      const claimedOfferings = (blessingModal.offerings || [])
+        .filter(o => (p.claimedOfferingIds || []).includes(o.id))
+        .map(o => ({ id: o.id, name: o.name }));
+      return createBlessingRegistration({
+        eventId: blessingModal.id,
+        name: p.name.trim(),
+        phone: member ? (memberProfile?.phone ?? '') : guestPhone,
+        birthDate: p.birthDate || undefined,
+        zodiac: p.zodiac,
+        gender: p.gender || undefined,
+        address: p.address || undefined,
+        notes: blessingNotes || undefined,
+        packageName: pkg?.name,
+        packageFee:  pkg?.fee,
+        selectedAddons:   selectedAddons.length   > 0 ? selectedAddons   : undefined,
+        claimedOfferings: claimedOfferings.length > 0 ? claimedOfferings : undefined,
+      } as BlessingRegistrationData);
+    });
+    if (ok < blessingPersons.length) {
+      if (ok > 0) { setBlessingPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setBlessingStatus('error');
+      return;
     }
+    if (member) {
+      autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
+    }
+    setBlessingStatus('success');
+    setBlessingPersons([{ id: newId(), ...selfWithBirth, contactLabel: '本人' }]);
+    setBlessingNotes('');
   };
 
-  const [eventRegistrations, setEventRegistrations] = useState<BlessingRegistrationRecord[]>([]);
+  const [eventStats, setEventStats] = useState<{ packageCounts: Record<string, number>; offeringCounts: Record<string, number> }>({ packageCounts: {}, offeringCounts: {} });
 
   const openBlessingModal = (event: BlessingEventRecord) => {
     setBlessingModal(event);
-    setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
+    setBlessingPersons([{ id: newId(), ...selfWithBirth, contactLabel: '本人' }]);
     setBlessingNotes('');
     setBlessingStatus('idle');
-    // 抓取此活動目前已報名資料，用於計算方案／供品剩餘名額
-    getBlessingRegistrations(event.id).then(setEventRegistrations).catch(() => setEventRegistrations([]));
+    // 抓取此活動的報名統計（只有數字、不含個資），用於計算方案／供品剩餘名額
+    getBlessingEventStats(event.id).then(setEventStats).catch(() => setEventStats({ packageCounts: {}, offeringCounts: {} }));
   };
 
+  /**
+   * 平滑捲到某個元素，並在捲動期間鎖住捲動高亮。
+   * 鎖的長度依距離估算（Chrome 的平滑捲動距離越遠花越久），寧可多鎖一點：
+   * 鎖太短會讓中途的捲動事件把高亮改掉，鎖太長只是高亮晚幾百毫秒才跟著使用者的捲動走。
+   */
+  const smoothScrollToEl = (el: HTMLElement) => {
+    const dist = Math.abs(el.getBoundingClientRect().top);
+    navLockRef.current = performance.now() + Math.min(1400, 500 + dist * 0.25);
+    el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  /** 切換到獨立分頁（預約問事／祈福點燈／祈福活動／神尊修復），或回首頁 */
+  const goToPage = (target: SitePage) => {
+    setPage(target);
+    setActiveSection(target === 'home' ? 'home' : target);
+    setIsMenuOpen(false);
+    setMoreOpen(false);
+    // 換頁要直接跳到頂端。CSS 設了 scroll-behavior: smooth，不指定 instant 的話
+    // 會變成「內容已經換成新頁、畫面才慢慢滑上去」，而且滑動途中的捲動事件
+    // 會把導覽高亮改掉（見 navLockRef）。
+    navLockRef.current = performance.now() + 500;
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    const path = target === 'home' ? '/' : PAGE_PATHS[target];
+    if (stripSlash(window.location.pathname) !== stripSlash(path)) {
+      window.history.pushState({ page: target }, '', path);
+    }
+  };
+
+  /**
+   * 捲到首頁上的某個區塊。若目前在獨立分頁，先切回首頁——
+   * 區塊此刻還沒掛上 DOM，所以把目標記在 ref，等 page 變成 home 後的 effect 再捲。
+   */
   const scrollToSection = (id: string) => {
+    setIsMenuOpen(false);
+    setMoreOpen(false);
+    if (page !== 'home') {
+      pendingScrollRef.current = id;
+      goToPage('home');
+      setActiveSection(id);
+      return;
+    }
     setActiveSection(id);
     const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-    setIsMenuOpen(false);
+    if (element) smoothScrollToEl(element);
   };
+
+  /** 導覽項目統一入口：分頁走 goToPage，區塊走 scrollToSection */
+  const navTo = (item: NavItem) => {
+    if (item.kind === 'page') goToPage(item.id as SitePage);
+    else scrollToSection(item.id);
+  };
+
+  // 切回首頁後補捲到目標區塊（此時區塊才真的存在）
+  useEffect(() => {
+    if (page !== 'home' || !pendingScrollRef.current) return;
+    const id = pendingScrollRef.current;
+    pendingScrollRef.current = null;
+    const el = document.getElementById(id);
+    if (el) smoothScrollToEl(el);
+  }, [page]);
+
+  // 瀏覽器上一頁／下一頁要能在分頁之間正確切換
+  useEffect(() => {
+    const onPopPage = () => {
+      const next = pageFromPath();
+      setPage(next);
+      setActiveSection(next === 'home' ? 'home' : next);
+    };
+    window.addEventListener('popstate', onPopPage);
+    return () => window.removeEventListener('popstate', onPopPage);
+  }, []);
 
   // ── 共享報名表 handlers ──
   const handleCreateSharedSession = async (type: SharedServiceType) => {
@@ -618,63 +1151,157 @@ const App: React.FC = () => {
     ? `${window.location.origin}${window.location.pathname}?share=${sharedSession.id}`
     : '';
 
+  // 後台不計入流量分析（那是內部作業，不是訪客行為）
   if (showAdmin) {
-    return <AdminDashboard onBack={() => setShowAdmin(false)} role={adminRole} />;
+    return <Suspense fallback={<PageLoading />}><AdminDashboard onBack={() => setShowAdmin(false)} role={adminRole} /></Suspense>;
   }
 
+  // 導覽列是否浮在深色 Hero 之上：只有首頁最頂端才是。
+  // 其他分頁頂端是淺色內容，必須鋪米色底＋深色字才讀得到。
+  const navOverHero = page === 'home' && !isScrolled;
+
+  // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
+  const hideLineFloat = page === 'home' && !pastHero;
+
+  // 追蹤用的「目前頁面」：報名表與聖母經等畫面沒有各自的網址，
+  // 給它們固定代稱，後台報表才分得出訪客實際看的是哪一頁。
+  const analyticsPath =
+    showScripture ? '/scripture'
+    : showVolunteer ? '/volunteer'
+    : showFahui ? '/fahui'
+    : page === 'home' ? '/'
+    : PAGE_PATHS[page];
+
   if (showScripture) {
-    return <ScripturePage onBack={() => setShowScripture(false)} />;
+    return (<>
+      <Analytics path={analyticsPath} />
+      <Suspense fallback={<PageLoading />}><ScripturePage onBack={() => setShowScripture(false)} /></Suspense>
+    </>);
+  }
+
+  if (showVolunteer) {
+    return (<>
+      <Analytics path={analyticsPath} />
+      <Suspense fallback={<PageLoading />}><VolunteerRegistration prefill={volunteerPrefill} onBack={closeVolunteer} /></Suspense>
+    </>);
+  }
+
+  if (showFahui) {
+    return (<>
+      <Analytics path={analyticsPath} />
+      <Suspense fallback={<PageLoading />}>
+        <FahuiRegistration onVolunteer={(contact) => openVolunteer(contact)} />
+      </Suspense>
+    </>);
   }
 
   return (
     <div className="min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white">
+      <Analytics path={analyticsPath} />
+      <a
+        href="#main-content"
+        className="fixed left-4 top-3 z-[200] -translate-y-20 rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#7C5C1E] shadow-xl transition-transform focus:translate-y-0"
+      >
+        跳至主要內容
+      </a>
       {/* Navigation */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-[#F0E9CE]/98 backdrop-blur-md shadow-md border-b border-[#C49820]/50'
-          : 'bg-[#F0E9CE]/92 backdrop-blur-sm border-b border-[#C49820]/20'
-      }`}>
+      {/* 導覽列底色用 inline style：本專案的 Tailwind CDN 不會產生 bg-[#F0E9CE] 這種任意色 class
+          （實測 computed 是 transparent），原本一直靠 Hero 亮照片才看得清楚。
+          Hero 改成深色底後，深棕選單字直接消失，所以在首頁頂端改為淺色字＋透明底，
+          捲動後或在其他分頁才鋪米色底。 */}
+      <nav
+        className={`fixed w-full z-50 transition-all duration-300 border-b ${
+          // 首頁頂端不畫下緣細線：標題穿過導覽列高度，有線會從字上橫切過去。
+          //
+          // **`border-b` 要一直掛著，只換顏色，不要靠加減 class 來決定有沒有線。**
+          // Tailwind 的 preflight 把所有元素的預設邊框色設成 gray-200（rgb(229,231,235)）。
+          // 若改用切換 `border-b` 的寫法，class 一移除顏色會立刻跳回那個灰白色，
+          // 而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——這 300ms 就是一條很明顯的白線
+          // （廟方回報「往下滑導覽列下緣會出現一條白線」）。維持寬度、只讓顏色在
+          // 透明與金色之間過渡，就沒有中間狀態可言。
+          navOverHero ? 'border-transparent' : 'backdrop-blur-md shadow-md border-[#C49820]/50'
+        }`}
+        style={{ backgroundColor: navOverHero ? 'transparent' : 'rgba(240, 233, 206, 0.97)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
-            <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => scrollToSection('home')}>
-              <img src="/logo.png" alt="台北古亭和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
-              <div className="hidden sm:block">
-                <h1 className={`text-temple-dark font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-base' : 'text-lg'}`}>台北古亭和聖壇</h1>
-                <p className="text-[10px] tracking-widest text-temple-red/70 uppercase hidden lg:block">He Sheng Altar</p>
-              </div>
-            </div>
+            {/* Hero 頂端已有直式壇名，所以導覽列先隱藏品牌；往下滑進入米色選單後，
+                左側淡入同款宋體「和聖壇」。保留固定寬度能避免淡入時右側選單跳動。 */}
+            <button
+              type="button"
+              onClick={() => navTo({ id: 'home', label: '首頁', kind: 'section' })}
+              aria-hidden={navOverHero}
+              tabIndex={navOverHero ? -1 : 0}
+              className={`shrink-0 font-serif font-bold text-xl sm:text-2xl tracking-[0.25em] text-[#3D2800]
+                transition-all duration-300 hover:text-[#7C5C1E] focus-visible:text-[#7C5C1E]
+                ${navOverHero ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}
+            >
+              和聖壇
+            </button>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'donation'].map((item) => (
+              {NAV_PRIMARY.map((item) => (
                 <button
-                  key={item}
-                  onClick={() => scrollToSection(item)}
+                  key={item.id}
+                  onClick={() => navTo(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
-                    ${activeSection === item
-                      ? 'bg-temple-gold/15 text-temple-red font-semibold'
-                      : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
+                    ${activeSection === item.id
+                      ? (navOverHero ? 'bg-white/15 text-white font-semibold' : 'bg-temple-gold/15 text-temple-red font-semibold')
+                      : (navOverHero ? 'text-white/90 hover:bg-white/10 hover:text-white' : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red')}`}
                 >
-                  {{
-                    'home': '首頁',
-                    'about': '緣起',
-                    'deities': '神明',
-                    'lamps': '點燈',
-                    'blessing': '祈福',
-                    'donation': '捐獻',
-                    'booking': '問事',
-                  }[item]}
-                  {activeSection === item && (
+                  {item.label}
+                  {activeSection === item.id && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-temple-gold rounded-full" />
                   )}
                 </button>
               ))}
-              <button
-                onClick={() => setShowScripture(true)}
-                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-red/80 hover:bg-temple-red/10 hover:text-temple-red border border-temple-red/30"
+
+              {/* 「更多」收納次要項目。用 onBlur 關閉而非全域監聽：
+                  容器有 tabIndex，focus 離開整個群組（含子按鈕）時才收合，
+                  點選單內的項目不會因為先失焦而讓 onClick 落空。 */}
+              <div
+                className="relative"
+                tabIndex={-1}
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}
               >
-                聖母經
-              </button>
-              <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
+                <button
+                  onClick={() => setMoreOpen(o => !o)}
+                  aria-expanded={moreOpen}
+                  aria-haspopup="true"
+                  className={`relative flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
+                    ${NAV_MORE.some(m => m.id === activeSection) || moreOpen
+                      ? (navOverHero ? 'bg-white/15 text-white font-semibold' : 'bg-temple-gold/15 text-temple-red font-semibold')
+                      : (navOverHero ? 'text-white/90 hover:bg-white/10 hover:text-white' : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red')}`}
+                >
+                  更多
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {moreOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-[#F0E9CE] rounded-xl shadow-lg border border-[#C49820]/40 py-1.5 overflow-hidden">
+                    {NAV_MORE.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => navTo(item)}
+                        className={`block w-full text-left px-4 py-2.5 text-sm font-serif transition-colors
+                          ${activeSection === item.id
+                            ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                            : 'text-[#3D2800] hover:bg-[#C49820]/15 hover:text-temple-red'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                    <div className="h-px bg-[#C49820]/30 my-1.5 mx-3" />
+                    <button
+                      onClick={() => { setShowScripture(true); setMoreOpen(false); }}
+                      className="block w-full text-left px-4 py-2.5 text-sm font-serif text-temple-red hover:bg-temple-red/10 transition-colors"
+                    >
+                      天上聖母經
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className={`w-px h-6 mx-1 ${navOverHero ? 'bg-white/25' : 'bg-[#3D2800]/20'}`} />
               <button
                 onClick={() => setShowMemberPortal(true)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-temple-red text-white shadow-md hover:bg-[#5C1A04] hover:shadow-lg hover:scale-105 transition-all duration-200"
@@ -687,7 +1314,12 @@ const App: React.FC = () => {
             <div className="-mr-2 flex lg:hidden">
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 rounded-full text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10 transition-colors"
+                aria-label={isMenuOpen ? '關閉導覽選單' : '開啟導覽選單'}
+                aria-expanded={isMenuOpen}
+                aria-controls="mobile-navigation"
+                className={`inline-flex items-center justify-center p-2 rounded-full transition-colors ${
+                  navOverHero ? 'text-white hover:bg-white/10' : 'text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10'
+                }`}
               >
                 {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
               </button>
@@ -696,33 +1328,42 @@ const App: React.FC = () => {
         </div>
 
         {/* Mobile menu */}
-        <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'donation'].map((item) => (
+        {/* 展開高度改用 vh 並允許內部捲動：項目增加後實際高度已達 600px，
+            原本固定的 max-h-[500px] 會把最後幾項（聖母經、會員登入）裁掉。 */}
+        <div id="mobile-navigation" className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1 max-h-[80vh] overflow-y-auto">
+            {NAV_PRIMARY.map((item) => (
               <button
-                key={item}
-                onClick={() => scrollToSection(item)}
+                key={item.id}
+                onClick={() => navTo(item)}
                 className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
-                  ${activeSection === item
+                  ${activeSection === item.id
                     ? 'bg-temple-gold/15 text-temple-red font-semibold'
                     : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
               >
-                {{
-                  'home': '首頁',
-                  'about': '緣起',
-                  'deities': '神明',
-                  'lamps': '點燈',
-                  'blessing': '祈福',
-                  'donation': '捐獻',
-                  'booking': '問事',
-                }[item]}
+                {item.label}
+              </button>
+            ))}
+            {/* 手機選單本來就是直的、有空間，次要項目用分隔線區隔即可，
+                不必再套一層下拉——多一層點擊只是增加操作成本。 */}
+            <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
+            {NAV_MORE.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => navTo(item)}
+                className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
+                  ${activeSection === item.id
+                    ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                    : 'text-[#3D2800]/80 hover:bg-[#C49820]/10 hover:text-temple-red'}`}
+              >
+                {item.label}
               </button>
             ))}
             <button
               onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
               className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
-              ✦ 聖母經
+              天上聖母經
             </button>
             <button
               onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
@@ -735,123 +1376,129 @@ const App: React.FC = () => {
         </div>
       </nav>
 
+      {/* ── 首頁內容（四項服務已各自獨立成頁，見下方 page === '…' 的區塊）── */}
+      {page === 'home' && (<>
       {/* Hero Section */}
-      <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Slideshow Background */}
-        <div className="absolute inset-0 z-0">
-          {heroSlides.length > 0 ? (
-            heroSlides.map((slide, index) => (
-              <img
-                key={slide.id}
-                src={getSiteImagePublicUrl(slide.imagePath)}
-                alt={`投影片 ${index + 1}`}
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${index === heroSlideIndex ? 'opacity-100' : 'opacity-0'}`}
-                referrerPolicy="no-referrer"
-              />
-            ))
-          ) : (
-            <img
-              src={HERO_FALLBACK}
-              alt="Temple Background"
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+      <section id="home" className="hero-scene relative min-h-[100svh] flex items-center justify-center overflow-hidden">
+        <span id="main-content" className="sr-only">主要內容</span>
+        {/* 背景：金箔牆（廟方提供的底圖），連同金屬反光一起由 SilkSheen 畫。
+            底圖與翻面層必須像素對齊，所以兩張都交給元件，不在這裡各放一張。
+            圖 1491×996（3:2）；滿版金箔沒有主體，任何方向裁切都成立，一律置中。
+            前一版的金色祥雲織錦是 /hero-clouds.jpg，檔案留著，要換回只改這一行。
+            注意排序：反光層必須在下面那道深色遮罩「之前」，
+            否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。 */}
+        <SilkSheen src="/hero-gold.jpg" tone="gold" className="absolute inset-0 z-0 overflow-hidden" />
+        {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
+            金箔底很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把金壓濁了。
+            所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓，讓金完整亮出來——
+            按鈕是深藍底金字，本來就是深壓淺，不需要遮罩幫忙。 */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            // 用純黑而不是褐色來壓暗：褐色疊在金上會把顏色帶到橄欖綠，整片金看起來像髒了；
+            // 黑色是等比降低三個通道，色相不變，看起來只是「比較暗的金」。
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.32) 12%, rgba(0,0,0,0.10) 24%, rgba(0,0,0,0) 36%, rgba(0,0,0,0) 100%)',
+          }}
+        />
+
+        {/* 一炷清香：只有煙、沒有香枝，發射點壓在畫面底緣之下。
+            粒子持續生成消散，所以沒有「循環播放」的接縫（作法見元件內的說明）。 */}
+        <IncenseSmoke />
+
+        {/* 宮壇名：左上角直式書寫，直接穿過導覽列的高度。
+            導覽列左側已清空（無 logo 與全名），首頁頂端又是透明底，所以疊得上去。
+            z-20 必須低於導覽列的 z-50：往下捲時導覽列轉成米色不透明，
+            標題會自然滑進去被蓋掉；若把標題疊在導覽列之上，捲動時會看到字壓在色塊上。 */}
+        <h1
+          className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 text-white font-serif font-bold
+                     text-4xl sm:text-6xl tracking-[0.25em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]
+                     [writing-mode:vertical-rl] [text-orientation:upright]"
+        >
+          和聖壇
+        </h1>
+
+        {/* Hero 前景：行動按鈕與三尊神明放在同一個 flex 容器裡，讓瀏覽器自己算避讓。
+            神明的寬度是由 vh 高度推出來的，用 vw 寫死按鈕位置在平板尺寸會夾在
+            兩者之間、兩邊都撞到；交給 flex 就不必猜。
+            手機（直排）：神明在上、按鈕在下，兩者都水平置中。
+                          直排時 items-* 控制的是水平對齊，所以置中要寫 items-center。
+            桌機（橫排）：神明佔右側自然寬度，按鈕落在左側、與宮壇名同一條左邊界（pl-10 對齊
+                          標題的 left-10），形成「左上宮壇名 → 左下按鈕 → 右側神明」的三角。
+                          橫排時 items-* 變成垂直對齊，改回 items-end 讓神明貼齊底部。
+                          LINE 浮動鈕在 Hero 期間收起，所以按鈕可以直接沉到底部，不必再上抬。 */}
+        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-end items-center sm:flex-row sm:items-end">
+          {/* 直排是為了讓「傾斜提示」疊在報名鈕正上方；桌機只有報名鈕，
+              改成靠左對齊後與原本的 justify-start 結果相同。 */}
+          <div className="hero-actions order-2 sm:order-none w-full sm:w-auto sm:flex-1 flex flex-col items-center gap-3 sm:items-start pb-8 sm:pb-0 sm:pl-10 sm:mb-16">
+            {/* 只在 iOS 出現：那裡的陀螺儀要使用者手勢才給權限 */}
+            <SilkTiltPrompt />
+            <button
+              onClick={() => setShowFahui(true)}
+              // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。
+              // 先前的金底按鈕與 Hero 的金色織錦同色系，等於埋進背景。
+              className="hero-primary btn-sutra pointer-events-auto px-10 py-4 font-bold transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg tracking-wider whitespace-nowrap"
+            >
+              <ClipboardList className="w-5 h-5" />
+              報名普渡法會
+            </button>
+          </div>
+
+          {/* 三尊神明：彼此底部對齊，像同壇並列。陣列順序＝畫面由左到右。
+              手機用 order-1 排到按鈕上方；桌機回到 DOM 順序，落在按鈕右側。
+              留空陣列則整區不渲染，按鈕會自動回到整個 Hero 的水平中央。 */}
+          {HERO_DEITIES.length > 0 && (
+            /* 每尊各自往下沉多少寫在 HERO_DEITIES 的 drop，不再由這一層統一控制——
+               階梯感就是靠三個不同的沉沒量做出來的。
+               桌機沉出去的部分由 Hero 的 overflow-hidden 裁掉；
+               手機的神明上方還有按鈕在下面，所以這一層自己 overflow-hidden＋固定高度，
+               否則沉下去的部分會壓到報名鈕。 */
+            <div className="hero-deity-stage order-1 sm:order-none shrink-0 w-full h-[121vw] max-h-[64vh] overflow-hidden sm:w-auto sm:h-auto sm:max-h-none sm:overflow-visible flex items-end justify-center sm:justify-start sm:pr-6 mb-4 sm:mb-0">
+              <div className="hero-aura" aria-hidden="true" />
+              {HERO_DEITIES.slice(0, 3).map((d, i) => (
+                // 以「高」為主、「寬」只是防呆上限：神像是直式，高度決定氣勢。
+                // 負左邊距讓三尊彼此交疊，像同壇並列而不是三張圖並排。
+                // <picture>：WebP 省一半流量，舊 Safari 退回調色盤 PNG，兩者只會下載其中一個。
+                <picture
+                  key={d.src}
+                  className={`hero-deity hero-deity-${i + 1} ${d.drop} ${d.layer} ${d.gap ?? ''}`}
+                >
+                  <source srcSet={d.src} type="image/webp" />
+                  <img
+                    src={d.fallback}
+                    alt={d.name}
+                    // 三尊都在首屏，一律 eager：lazy 會讓後兩尊晚一拍才浮出來，
+                    // 看起來像破圖補上去的。只有優先權分高低，讓主角那尊先到。
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority={d.priority ? 'high' : 'auto'}
+                    className={`w-auto object-contain object-bottom drop-shadow-2xl ${d.size}`}
+                  />
+                </picture>
+              ))}
+            </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
         </div>
 
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <div className="mb-6 inline-block">
-            <span className="bg-temple-gold/20 text-temple-gold border border-temple-gold px-4 py-1 rounded-full text-sm tracking-widest backdrop-blur-sm">
-              護國佑民 • 慈悲濟世
-            </span>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 font-serif drop-shadow-lg leading-tight">
-            和聖壇 <br />
-            <span className="text-temple-gold">靈感護佑</span>
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-200 mb-10 font-light tracking-wide max-w-2xl mx-auto">
-            誠心祈求，自有感應。和聖壇提供線上預約服務，<br />為信眾指點迷津，解惑安神。
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => scrollToSection('booking')}
-              className="px-8 py-4 bg-temple-gold hover:bg-[#E09860] text-white font-bold rounded-full shadow-[0_0_20px_rgba(212,133,74,0.4)] transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg"
-            >
-              <Calendar className="w-5 h-5" />
-              立即預約問事
-            </button>
-            <button
-              onClick={() => scrollToSection('services')}
-              className="px-8 py-4 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold rounded-full transition-all flex items-center justify-center gap-2 text-lg"
-            >
-              <ScrollText className="w-5 h-5" />
-              了解服務項目
-            </button>
-          </div>
+        {/* Hero 左側的社群圖示列已移除（畫面留給三尊神明）。
+            社群連結仍在頁尾，由後台「社群帳號設定」控制。 */}
 
-        </div>
+        {/* 輪播圓點已隨輪播照片一起移除 */}
 
-        {/* 社群連結 — 左側絕對定位，與右下角浮動按鈕左右平衡 */}
-        <div className="absolute left-5 sm:left-8 bottom-24 z-10 flex flex-col items-center gap-3">
-          <span className="text-white/50 text-[10px] tracking-widest [writing-mode:vertical-rl] mb-1">FOLLOW</span>
-          <button
-            onClick={() => handleLineClick('hero')}
-            title="加入 LINE 官方帳號"
-            className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-          >
-            <LineIcon className="w-5 h-5" />
-          </button>
-          <a
-            href="https://www.facebook.com/100064534546570"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Facebook"
-            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg hover:bg-[#1877F2] hover:border-[#1877F2] hover:scale-110 transition-all"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
-          </a>
-          <a
-            href="https://www.instagram.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Instagram"
-            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg hover:bg-gradient-to-br hover:from-[#f09433] hover:via-[#e6683c] hover:to-[#bc1888] hover:border-transparent hover:scale-110 transition-all"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 018.458 2.525c.636-.247 1.363-.416 2.427-.465C11.901 2.013 12.256 2 14.71 2h-.05zm-.63 1.802h-.128c-2.37 0-2.703.01-3.653.055-.877.04-1.354.187-1.671.31a2.785 2.785 0 00-1.033.672 2.785 2.785 0 00-.672 1.033c-.123.317-.27.794-.31 1.671-.045.95-.055 1.283-.055 3.653v.128c0 2.37.01 2.703.055 3.653.04.877.187 1.354.31 1.671.163.418.358.718.672 1.033.315.314.615.509 1.033.672.317.123.794.27 1.671.31.95.045 1.283.055 3.653.055h.128c2.37 0 2.703-.01 3.653-.055.877-.04 1.354-.187 1.671-.31a2.785 2.785 0 001.033-.672 2.785 2.785 0 00.672-1.033c.123-.317.27-.794.31-1.671.045-.95.055-1.283.055-3.653v-.128c0-2.37-.01-2.703-.055-3.653-.04-.877-.187-1.354-.31-1.671a2.785 2.785 0 00-.672-1.033 2.785 2.785 0 00-1.033-.672c-.317-.123-.794-.27-1.671-.31-.95-.045-1.283-.055-3.653-.055zm0 3.063a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" /></svg>
-          </a>
-          <div className="w-px h-6 bg-white/30 mt-1" />
-        </div>
-
-        {/* Dot Indicators */}
-        {heroSlides.length > 1 && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {heroSlides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setHeroSlideIndex(i);
-                  startHeroInterval(heroSlides.length);
-                }}
-                className={`h-2 rounded-full transition-all duration-300 ${i === heroSlideIndex ? 'bg-temple-gold w-6' : 'bg-white/50 w-2 hover:bg-white/80'}`}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Decorative Divider */}
-        <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{ clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)' }}></div>
+        {/* 底部的倒三角切角已移除，改成平的收邊：
+            用一道極短的漸層讓織錦自然過渡到下一段的米白，不做幾何造型。 */}
+        <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-b from-transparent to-temple-bg pointer-events-none" />
       </section>
 
 {/* Bulletin Section (公佈欄) */}
       <section id="bulletin" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <Megaphone className="w-6 h-6 text-temple-red" />
-              <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest">最新消息</h2>
-            </div>
-            <h3 className="text-4xl font-bold text-temple-dark font-serif">公佈欄</h3>
+          <div className="sr sr-up text-center mb-12">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
+              壇務公告
+              <span className="w-8 h-1 bg-temple-gold" />
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">最新活動</h3>
             <div className="flex items-center justify-center gap-3 mt-3 mb-2">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -884,15 +1531,21 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4 max-w-4xl mx-auto">
-              {filteredBulletins.map((bulletin) => (
+              {filteredBulletins.map((bulletin, bi) => (
+                // 進場包在外層：卡片本身有 transition-all（Tailwind CDN 排在自訂樣式之後），
+                // 直接把 .sr 掛在卡片上會被它的 150ms 覆蓋掉，變成快閃而不是緩緩浮起。
+                // 逐張錯開延遲，才有「一張一張進來」的節奏，而不是整列一起閃。
+                <div key={bulletin.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][Math.min(bi, 3)]}`}>
                 <div
-                  key={bulletin.id}
                   className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 ${
                     bulletin.isPinned ? 'border-temple-gold' : 'border-temple-red/30'
                   }`}
                 >
-                  <div
-                    className="flex items-start justify-between cursor-pointer"
+                  <button
+                    type="button"
+                    aria-expanded={expandedBulletin === bulletin.id}
+                    aria-controls={`bulletin-${bulletin.id}`}
+                    className="w-full flex items-start justify-between text-left cursor-pointer"
                     onClick={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
                   >
                     <div className="flex-1">
@@ -917,23 +1570,48 @@ const App: React.FC = () => {
                       </div>
                       <h4 className="text-lg font-bold text-temple-dark font-serif">{bulletin.title}</h4>
                     </div>
-                    <div className="ml-4 text-gray-400 flex-shrink-0">
-                      {expandedBulletin === bulletin.id ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
+                    {/* 收合時右側放小縮圖，讓有照片的活動一眼看得出來；沒照片就只有箭頭 */}
+                    <div className="ml-4 flex items-center gap-3 flex-shrink-0">
+                      {bulletin.imageUrl && expandedBulletin !== bulletin.id && (
+                        <img
+                          src={bulletin.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          className="w-16 h-12 object-cover rounded-lg border border-temple-gold/20"
+                        />
                       )}
+                      <div className="text-gray-400">
+                        {expandedBulletin === bulletin.id ? (
+                          <ChevronUp className="w-5 h-5" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5" />
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </button>
                   {expandedBulletin === bulletin.id && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div id={`bulletin-${bulletin.id}`} className="mt-4 pt-4 border-t border-gray-200">
+                      {bulletin.imageUrl && (
+                        <img
+                          src={bulletin.imageUrl}
+                          alt={bulletin.title}
+                          loading="lazy"
+                          className="w-full max-h-96 object-cover rounded-xl border border-temple-gold/20 mb-4"
+                        />
+                      )}
                       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
                       {bulletin.linkedService && (() => {
-                        const svcLabel:  Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
-                        const svcAnchor: Record<string, string> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'repair' };
+                        const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
+                        // 點燈／祈福／問事已各自獨立成頁，捐獻仍是首頁上的區塊
+                        const svcPage: Record<string, SitePage> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking' };
+                        const target = svcPage[bulletin.linkedService!];
                         return (
                           <button
-                            onClick={e => { e.stopPropagation(); scrollToSection(svcAnchor[bulletin.linkedService!] ?? bulletin.linkedService!); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (target) goToPage(target);
+                              else scrollToSection('donation');
+                            }}
                             className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
                           >
                             前往{svcLabel[bulletin.linkedService!] ?? ''}登記 →
@@ -942,6 +1620,7 @@ const App: React.FC = () => {
                       })()}
                     </div>
                   )}
+                </div>
                 </div>
               ))}
             </div>
@@ -953,45 +1632,62 @@ const App: React.FC = () => {
       <section id="about" className="py-20 bg-temple-bg relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="relative">
-              <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
-              <img
-                src={aboutImageUrl}
-                alt="和聖壇介紹"
-                className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
-                referrerPolicy="no-referrer"
-              />
+            {/* 三層各司其職，不能疊在同一個元素上：
+                外層 .sr 進場（transform 由 CSS 控制）、中層 .sr-figure 視差（transform 由 JS 每次捲動寫入）、
+                內層才是照片與金框。兩個 transform 寫在同一層會互相蓋掉，效果只會剩一個。 */}
+            <div className="sr sr-left">
+              <div className="sr-figure">
+                <div className="relative">
+                  <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
+                  <img
+                    src={aboutImageUrl}
+                    alt="和聖壇介紹"
+                    className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center">
-                <span className="w-8 h-1 bg-temple-gold mr-3"></span>
+            {/* 文字欄反向位移：與照片相反方向、較小幅度，兩層的速度差就是視差 */}
+            <div className="sr-counter">
+              <h2 className="sr sr-up text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center gap-3">
+                <span className="w-8 h-1 bg-temple-gold" />
                 關於和聖壇
               </h2>
-              <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
-                虔誠信仰，世代傳承
+              {/* 標題與內文取自後台「關於我們」第一個顯示中的段落（與 /about 同一份資料）。
+                  還沒載入或後台是空的時候，退回下面寫死的保底文案，不會開天窗。 */}
+              <h3 className="sr sr-up sr-d1 balance-text text-3xl sm:text-4xl font-bold text-temple-dark mb-2 font-serif leading-snug">
+                {aboutLead?.heading || '心中有善不畏苦；家有溫暖路有光。'}
               </h3>
-              <div className="flex items-center gap-3 mt-2 mb-6">
+              <div className="sr sr-up sr-d1 flex items-center gap-3 mt-2 mb-6">
                 <span className="w-8 h-px bg-temple-gold/70" />
                 <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
                 <span className="w-20 h-px bg-temple-gold/70" />
               </div>
-              <p className="text-gray-600 mb-6 leading-relaxed text-lg">
-                和聖壇供奉神明，自建廟以來，香火鼎盛，神威顯赫。神明慈悲為懷，聞聲救苦，庇佑子民平安順遂。
-              </p>
-              <p className="text-gray-600 mb-8 leading-relaxed text-lg">
-                本壇秉持正信正念，弘揚濟世精神。除了傳統祭祀儀式，更結合現代化服務，提供信眾心靈寄託與人生方向的指引。
+              <p className="sr sr-up sr-d2 text-gray-600 mb-8 leading-relaxed text-lg">
+                {renderInline(
+                  splitParagraphs(aboutLead?.body || '')[0]
+                  || '和聖壇創立近四十年，秉持著天上聖母傳道的精神。我們深信，心中有善不畏苦；家有溫暖路有光。信仰不止於燒香祈福，更是落實於日常的為人處世。以信仰安頓身心，以善念引領前行，將媽祖的教誨實踐於生活之中，讓慈悲與善念一路延續。'
+                )}
               </p>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
-                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">1986</span>
-                  <span className="text-gray-500">建壇年份</span>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
-                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">10萬+</span>
-                  <span className="text-gray-500">年度信眾</span>
-                </div>
+                {[[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]].map(([value, label], fi) => (
+                  <div key={label} className={`sr sr-up ${fi === 0 ? 'sr-d2' : 'sr-d3'} bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold`}>
+                    <span className="text-4xl font-bold text-temple-red font-serif block mb-2">{value}</span>
+                    <span className="text-gray-500">{label}</span>
+                  </div>
+                ))}
               </div>
+
+              {/* 首頁這段是摘要，完整沿革與照片在 /about */}
+              <button
+                onClick={() => goToPage('about')}
+                className="mt-8 inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
+              >
+                更多
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -1000,13 +1696,13 @@ const App: React.FC = () => {
 {/* Deities Section */}
       <section id="deities" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center">
-              <span className="w-8 h-1 bg-temple-gold mr-3"></span>
-              神明介紹
-              <span className="w-8 h-1 bg-temple-gold ml-3"></span>
+          <div className="sr sr-up text-center mb-12">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
+              神尊介紹
+              <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark font-serif">供奉神明</h3>
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">祀奉神尊</h3>
             <div className="flex items-center justify-center gap-3 mt-3 mb-2">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -1015,8 +1711,10 @@ const App: React.FC = () => {
           </div>
           {deityHalls.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {/* 切換殿別要把展開數量歸零，否則從 12 尊的殿切到 3 尊的殿，
+                  「更多」的剩餘數會算成負值、按鈕該收卻不收 */}
               <button
-                onClick={() => setSelectedHall(null)}
+                onClick={() => { setSelectedHall(null); setDeityShown(DEITY_PAGE); }}
                 className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                   selectedHall === null
                     ? 'bg-temple-red text-white border-temple-red shadow-md'
@@ -1026,7 +1724,7 @@ const App: React.FC = () => {
               </button>
               {deityHalls.map(h => (
                 <button key={h.id}
-                  onClick={() => setSelectedHall(h.id)}
+                  onClick={() => { setSelectedHall(h.id); setDeityShown(DEITY_PAGE); }}
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                     selectedHall === h.id
                       ? 'bg-temple-red text-white border-temple-red shadow-md'
@@ -1041,27 +1739,56 @@ const App: React.FC = () => {
             const filteredDeities = selectedHall
               ? deities.filter(d => d.hallId === selectedHall)
               : deities;
+            // 一次只顯示 DEITY_PAGE 尊，按一次「更多」再展開一批（不收合，符合逐步瀏覽的直覺）
+            const shownDeities = filteredDeities.slice(0, deityShown);
+            const remaining = filteredDeities.length - shownDeities.length;
             return filteredDeities.length > 0 ? (
+            <>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredDeities.map((deity) => (
-                <div key={deity.id} className="bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
-                  <div className="h-48 bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
+              {shownDeities.map((deity, di) => (
+                // 只做進場（逐張錯開），**不要加視差**。
+                // 曾經給單數欄 30px 的視差做高低錯落，結果捲動時四張卡上緣會差到 18px，
+                // 廟方看到的是「牌卡沒有排整齊」——整齊的網格比錯落的動態重要。
+                // 卡片高度靠 grid 的 stretch ＋ 內層 h-full 撐成等高，不要拿掉 h-full。
+                <div key={deity.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][di % 4]}`}>
+                <div className="h-full bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
+                  {/* 直式 3:4：神尊立像是直的，原本固定高 192px 的橫幅會把頭冠與衣袍下擺切掉。
+                      與神尊修復卡片、後台縮圖同一個比例，後台看到的裁切結果就是這裡的樣子。 */}
+                  <div className="aspect-[3/4] bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
                     {deity.imagePath ? (
-                      <img src={getSiteImagePublicUrl(deity.imagePath)} alt={deity.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={getSiteImagePublicUrl(deity.imagePath)} alt={deity.name} loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="text-center">
                         <Flame className="w-16 h-16 text-temple-gold/60 mx-auto mb-2" />
                       </div>
                     )}
                   </div>
-                  <div className="p-6 text-center">
-                    <h4 className="text-xl font-bold text-temple-dark font-serif mb-1">{deity.name}</h4>
-                    {deity.title && <p className="text-temple-red text-sm font-medium mb-3">{deity.title}</p>}
-                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-4">{deity.description}</p>
+                  {/* 名號置中、介紹靠左：介紹是多行敘述，置中的多行文字每行起點都不同，讀起來很吃力 */}
+                  <div className="p-6">
+                    <h4 className="text-xl font-bold text-temple-dark font-serif mb-1 text-center">{deity.name}</h4>
+                    {deity.title && <p className="text-temple-red text-sm font-medium mb-3 text-center">{deity.title}</p>}
+                    {/* line-clamp-6：卡片一行約 16 字，六行約 96 字，確保 60 字的介紹一定完整顯示。
+                        這是上限不是固定高度，短介紹仍然只佔它需要的行數。 */}
+                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-6">{deity.description}</p>
                   </div>
+                </div>
                 </div>
               ))}
             </div>
+            {remaining > 0 && (
+              <div className="text-center mt-10">
+                <button
+                  onClick={() => setDeityShown(n => n + DEITY_PAGE)}
+                  className="inline-flex items-center gap-2 px-8 py-3 rounded-full border border-temple-gold/60 text-temple-red font-medium hover:bg-temple-gold/10 hover:border-temple-gold transition-all"
+                >
+                  更多
+                  <span className="text-sm text-gray-500">（還有 {remaining} 尊）</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            </>
             ) : (
               <p className="text-center text-gray-400">{deities.length === 0 ? '載入中...' : '此殿尚無神明'}</p>
             );
@@ -1069,26 +1796,84 @@ const App: React.FC = () => {
         </div>
       </section>
 
+      {/* ── 遷址捐款（首頁摘要）──
+          內容取自後台「遷址捐款」第一個顯示中的段落，與 /relocation 同一份資料。
+          版型比照「關於和聖壇」，但不放數字卡——那兩張是關於我們專屬的。
+          後台還沒有任何段落時整區不渲染，首頁不會出現空殼。 */}
+      {relocationLead && (
+      <section id="relocation-intro" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* 照片在右、文字在左，與上方「關於和聖壇」左右相反，版面才不會一成不變 */}
+          <div className={`grid gap-12 items-center ${relocationLead.imagePath ? 'md:grid-cols-2' : ''}`}>
+            {relocationLead.imagePath && (
+              // 照片在右，所以從右邊滑入；進場與視差一樣分成兩層（同「關於和聖壇」）
+              <div className="sr sr-right md:order-2">
+                <div className="sr-figure">
+                  <div className="relative">
+                    <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0" aria-hidden="true" />
+                    <img
+                      src={getSiteImagePublicUrl(relocationLead.imagePath)}
+                      alt={relocationLead.heading || '遷址'}
+                      loading="lazy"
+                      className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className={`sr-counter ${relocationLead.imagePath ? 'md:order-1' : 'max-w-3xl mx-auto text-center'}`}>
+              <h2 className="sr sr-up text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center gap-3">
+                <span className="w-8 h-1 bg-temple-gold" />
+                護持遷址
+              </h2>
+              <h3 className="sr sr-up sr-d1 balance-text text-3xl sm:text-4xl font-bold text-temple-dark mb-2 font-serif leading-snug">
+                {relocationHome.heading || relocationLead.heading || '遷址捐款'}
+              </h3>
+              <div className="sr sr-up sr-d1 flex items-center gap-3 mt-2 mb-6">
+                <span className="w-8 h-px bg-temple-gold/70" />
+                <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+                <span className="w-20 h-px bg-temple-gold/70" />
+              </div>
+              <p className="sr sr-up sr-d2 text-gray-600 mb-8 leading-relaxed text-lg">
+                {renderInline(relocationHome.body || splitParagraphs(relocationLead.body)[0] || '')}
+              </p>
+              <button
+                onClick={() => goToPage('relocation')}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
+              >
+                更多
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      )}
+
       {/* Services Section */}
       <section id="services" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-2">
-            <span className="w-8 h-1 bg-temple-gold"></span>
+          <h2 className="sr sr-up text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+            <span className="w-8 h-1 bg-temple-gold" />
             宮廟服務
-            <span className="w-8 h-1 bg-temple-gold"></span>
+            <span className="w-8 h-1 bg-temple-gold" />
           </h2>
-          <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+          <h3 className="sr sr-up sr-d1 text-4xl font-bold text-temple-dark mb-2 font-serif">
             祈福保平安，點燈開智慧
           </h3>
-          <div className="flex items-center justify-center gap-3 mt-3 mb-12">
+          <div className="sr sr-up sr-d1 flex items-center justify-center gap-3 mt-3 mb-12">
             <span className="w-12 h-px bg-temple-gold/70" />
             <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
             <span className="w-12 h-px bg-temple-gold/70" />
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Service 1 */}
-            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100 relative overflow-hidden">
+            {/* Service 1 —— 只做進場，**不要加視差**。
+                曾經給三張卡不同的位移做高低錯落，結果捲動時三欄不齊，看起來像沒對好。
+                卡片自己有 hover:-translate-y-2，那是第二個 transform；
+                視差若寫在同一層，JS 寫的 inline transform 會把 hover 的位移吃掉。 */}
+            <div className="sr sr-up h-full">
+            <div className="h-full group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 bg-temple-gold text-white text-xs px-2 py-1 font-bold rounded-bl-lg">
                 熱門服務
               </div>
@@ -1099,27 +1884,31 @@ const App: React.FC = () => {
               <p className="text-gray-600 mb-6">
                 事業、感情、家運遇有瓶頸，誠心向神明請示。本壇提供一對一專人解籤與問事服務。
               </p>
-              <button onClick={() => scrollToSection('booking')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+              <button onClick={() => goToPage('booking')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 線上預約 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             </div>
+            </div>
 
             {/* Service 2 */}
-            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
+            <div className="sr sr-up sr-d1 h-full">
+            <div className="h-full group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
                 <Flame className="w-8 h-8 text-white" />
               </div>
               <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">光明燈 / 安太歲</h4>
               <p className="text-gray-600 mb-6">
-                農曆新年期間，提供安太歲、點光明燈、文昌燈、財利燈服務，祈求流年順遂，元辰光彩。
+                農曆新年期間，提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂，元辰光彩。
               </p>
-              <button onClick={() => scrollToSection('lamps')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+              <button onClick={() => goToPage('lamps')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 立即登記 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             </div>
+            </div>
 
             {/* Service 3 */}
-            <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
+            <div className="sr sr-up sr-d2 h-full">
+            <div className="h-full group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
@@ -1127,23 +1916,29 @@ const App: React.FC = () => {
               <p className="text-gray-600 mb-6">
                 舉辦各式祈福法會，為信眾消災解厄、增福添壽，並提供個人與闔家平安祈福登記。
               </p>
-              <button onClick={() => scrollToSection('blessing')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+              <button onClick={() => goToPage('blessing')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 立即報名 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
+            </div>
             </div>
           </div>
         </div>
       </section>
+      </>)}
 
-{/* Booking Section */}
+      {/* ── 預約問事（獨立分頁 /booking）── */}
+      {page === 'booking' && (
+      <div className="pt-20">
       <section id="booking" className="py-20 bg-temple-red relative text-white">
         {/* Pattern Overlay */}
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
-            <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2">
+            <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
               線上服務
+              <span className="w-8 h-1 bg-temple-gold" />
             </h2>
             <h3 className="text-4xl font-bold mb-2 font-serif">
               預約問事表單
@@ -1354,14 +2149,20 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
+      )}
 
-{/* Lamps Section */}
+      {/* ── 祈福點燈（獨立分頁 /lamps）── */}
+      {page === 'lamps' && (
+      <div className="pt-20">
       <section id="lamps" className="py-20 bg-temple-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-14">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 inline-block border-b-2 border-temple-gold pb-1">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
               點燈服務
+              <span className="w-8 h-1 bg-temple-gold" />
             </h2>
             <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
               祈福點燈，光明護佑
@@ -1568,16 +2369,24 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
+      )}
 
-      {/* ── 祈福 Section ── */}
+      {/* ── 祈福活動（獨立分頁 /blessing）── */}
+      {page === 'blessing' && (
+      <div className="pt-20">
       <section id="blessing" className="py-20 bg-white relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">神明庇佑</h2>
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
+              神明庇佑
+              <span className="w-8 h-1 bg-temple-gold" />
+            </h2>
             <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h3>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/70" />
-              <span className="text-temple-gold text-lg">✦</span>
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
               <span className="w-12 h-px bg-temple-gold/70" />
             </div>
             <p className="text-gray-500 max-w-xl mx-auto">
@@ -1585,9 +2394,27 @@ const App: React.FC = () => {
             </p>
           </div>
 
+          {/* 中元普渡法會報名 Banner */}
+          <div className="mb-8 bg-gradient-to-br from-amber-800 to-amber-950 rounded-2xl overflow-hidden shadow-lg">
+            <div className="px-6 py-6 sm:flex sm:items-center sm:justify-between gap-4">
+              <div className="text-white mb-4 sm:mb-0">
+                <p className="text-amber-300 text-xs tracking-widest mb-1">丙午年度・護國佑民</p>
+                <h4 className="text-2xl font-bold font-serif mb-1">佛道兩儀慈悲普渡禮懺法會</h4>
+                <p className="text-amber-200 text-sm">國曆 9/13（日）｜截止報名：9/06</p>
+                <p className="text-amber-300 text-xs mt-1">超渡祖先・解冤親債・贊普・地基主等 7 種項目</p>
+              </div>
+              <button
+                onClick={() => setShowFahui(true)}
+                className="w-full sm:w-auto shrink-0 px-7 py-3.5 bg-white text-amber-800 font-bold rounded-xl hover:bg-amber-50 active:scale-95 transition-all shadow-md text-sm"
+              >
+                立即線上報名 →
+              </button>
+            </div>
+          </div>
+
           {blessingEvents.length === 0 ? (
             <div className="text-center text-gray-400 py-12 text-sm space-y-2">
-              <p>目前暫無祈福活動</p>
+              <p>目前暫無其他祈福活動</p>
               <button onClick={() => scrollToSection('bulletin')}
                 className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto">
                 查看最新公告 →
@@ -1757,9 +2584,8 @@ const App: React.FC = () => {
                         </div>
                         {/* 護持方案（有多方案時才顯示） */}
                         {blessingModal.packages && blessingModal.packages.length > 0 && (() => {
-                          // 計算各方案已報名人數
-                          const pkgCount: Record<string, number> = {};
-                          eventRegistrations.forEach(r => { if (r.packageName) pkgCount[r.packageName] = (pkgCount[r.packageName] || 0) + 1; });
+                          // 各方案已報名人數（來自統計 RPC）
+                          const pkgCount = eventStats.packageCounts;
                           return (
                             <div>
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">護持方案 *</label>
@@ -1859,13 +2685,8 @@ const App: React.FC = () => {
                         })()}
                         {/* 供品名額認領（有設定時才顯示） */}
                         {blessingModal.offerings && blessingModal.offerings.length > 0 && (() => {
-                          // 從已報名記錄計算每個供品實際已認領數
-                          const offeringClaimedMap: Record<string, number> = {};
-                          eventRegistrations.forEach(r =>
-                            (r.claimedOfferings || []).forEach(o => {
-                              offeringClaimedMap[o.id] = (offeringClaimedMap[o.id] || 0) + 1;
-                            })
-                          );
+                          // 每個供品實際已認領數（來自統計 RPC）
+                          const offeringClaimedMap = eventStats.offeringCounts;
                           return (
                             <div className="border border-orange-300/60 rounded-xl p-3 bg-orange-50/40">
                               <p className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1.5">
@@ -1975,14 +2796,37 @@ const App: React.FC = () => {
           </div>
         )}
       </section>
+      </div>
+      )}
 
-{/* Repair Projects Section */}
+      {/* ── 關於我們完整版（獨立分頁 /about）──
+          入口是首頁「關於我們」區塊的「更多」按鈕；導覽列的「關於我們」仍捲到首頁區塊 */}
+      {page === 'about' && <AboutPage onBack={() => goToPage('home')} />}
+
+      {/* ── 遷址捐款（獨立分頁 /relocation）──
+          入口在導覽列的「更多」下拉 */}
+      {page === 'relocation' && <RelocationPage onBack={() => goToPage('home')} />}
+
+      {/* ── 神尊修復（獨立分頁 /repair）── */}
+      {page === 'repair' && (
+      <div className="pt-20">
+      {repairProjects.length === 0 && (
+        <section className="py-32 text-center">
+          <h3 className="text-3xl font-bold text-temple-dark font-serif mb-4">神尊修復專區</h3>
+          <p className="text-gray-500">目前沒有進行中的修復專案，感謝您的關心。</p>
+          <button onClick={() => goToPage('home')} className="mt-8 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors">
+            返回首頁
+          </button>
+        </section>
+      )}
       {repairProjects.length > 0 && (
       <section id="repair" className="py-20 bg-white relative">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-amber-700 font-serif text-lg font-bold tracking-widest mb-2">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
               護持修復
+              <span className="w-8 h-1 bg-temple-gold" />
             </h2>
             <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
               神尊修復專區
@@ -1997,68 +2841,74 @@ const App: React.FC = () => {
             </p>
           </div>
 
-          {/* 卡片牆 + 分頁 */}
+          {/* 神尊卡片牆：直式大圖，點卡片開啟詳情與捐獻視窗 */}
           {(() => {
-            const totalPages = Math.ceil(repairProjects.length / REPAIR_PER_PAGE);
-            const pageProjects = repairProjects.slice(repairPage * REPAIR_PER_PAGE, (repairPage + 1) * REPAIR_PER_PAGE);
+            const shown = repairProjects.slice(0, repairShown);
+            const remaining = repairProjects.length - shown.length;
             return (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {pageProjects.map(proj => {
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6">
+                  {shown.map(proj => {
                     const raised = repairProjectTotals[proj.id] || 0;
                     const pct = proj.targetAmount > 0
                       ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
                       : null;
-                    const isSelected = repairSelectedProj?.id === proj.id;
+                    const reached = pct !== null && pct >= 100;
                     return (
                       <button type="button" key={proj.id}
                         onClick={() => { setRepairSelectedProj(proj); setRepairFormStatus('idle'); }}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 text-center transition-all cursor-pointer ${isSelected ? 'border-amber-500 bg-amber-50 shadow-lg ring-2 ring-amber-300/50 scale-[1.02]' : 'border-gray-200 bg-white hover:border-amber-300 hover:shadow-md'}`}>
-                        {proj.imageUrl
-                          ? <img src={proj.imageUrl} alt={proj.name} className="w-20 h-20 object-cover rounded-xl" />
-                          : <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center">
-                              <Flame className="w-8 h-8 text-gray-300" />
-                            </div>}
-                        <span className={`text-base font-bold ${isSelected ? 'text-amber-700' : 'text-gray-800'}`}>{proj.name}</span>
-                        {proj.description && (
-                          <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
-                        )}
-                        {pct !== null && (
-                          <div className="w-full space-y-0.5">
-                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                            <div className="flex justify-between text-xs text-gray-400">
-                              <span>已募 NT${raised.toLocaleString()}</span>
-                              <span>{pct}%</span>
-                            </div>
-                            <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
+                        className="group text-left rounded-2xl overflow-hidden bg-white border border-gray-200 hover:border-amber-400 hover:shadow-xl transition-all">
+                        {/* 直式比例：神尊立像是直的，方形會把頭尾裁掉 */}
+                        <div className="relative aspect-[3/4] bg-gradient-to-br from-amber-50 to-gray-100 overflow-hidden">
+                          {proj.imageUrl
+                            ? <img src={proj.imageUrl} alt={proj.name} loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            : <div className="w-full h-full flex items-center justify-center">
+                                <Flame className="w-12 h-12 text-amber-200" />
+                              </div>}
+                          {reached && (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-green-500 text-white text-[11px] font-bold shadow">
+                              已達標
+                            </span>
+                          )}
+                          {/* 名稱壓在圖片下緣，深色漸層確保白字讀得到 */}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-3 pt-8 pb-2.5">
+                            <p className="text-white font-bold font-serif text-base sm:text-lg leading-tight drop-shadow">{proj.name}</p>
                           </div>
-                        )}
-                        {isSelected && <span className="text-xs font-bold text-amber-600">▼ 填寫捐獻</span>}
+                        </div>
+                        <div className="p-3 sm:p-4 space-y-2">
+                          {proj.description && (
+                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{proj.description}</p>
+                          )}
+                          {pct !== null ? (
+                            <div className="space-y-1">
+                              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${reached ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="flex justify-between text-[11px] text-gray-500">
+                                <span>已募 NT${raised.toLocaleString()}</span>
+                                <span className="font-bold">{pct}%</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-gray-400">隨喜護持</p>
+                          )}
+                          <span className="block text-center text-sm font-bold text-amber-600 group-hover:text-amber-700 pt-1">
+                            護持修復 →
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
-                {/* 分頁 */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2">
-                    <button type="button" disabled={repairPage === 0}
-                      onClick={() => setRepairPage(p => p - 1)}
-                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
-                      ‹ 上一頁
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <button type="button" key={i}
-                        onClick={() => setRepairPage(i)}
-                        className={`w-8 h-8 text-sm rounded-lg border transition-colors ${i === repairPage ? 'bg-amber-500 text-white border-amber-500 font-bold' : 'border-gray-300 hover:bg-gray-100'}`}>
-                        {i + 1}
-                      </button>
-                    ))}
-                    <button type="button" disabled={repairPage === totalPages - 1}
-                      onClick={() => setRepairPage(p => p + 1)}
-                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
-                      下一頁 ›
+                {remaining > 0 && (
+                  <div className="text-center">
+                    <button type="button"
+                      onClick={() => setRepairShown(n => n + REPAIR_PAGE_SIZE)}
+                      className="inline-flex items-center gap-2 px-8 py-3 rounded-full border border-amber-400 text-amber-700 font-medium hover:bg-amber-50 transition-all">
+                      顯示更多
+                      <span className="text-sm text-gray-500">（還有 {remaining} 尊）</span>
+                      <ChevronDown className="w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -2066,9 +2916,58 @@ const App: React.FC = () => {
             );
           })()}
 
-          {/* 選中後的簡易捐獻表單 */}
+          {/* 神尊詳情與捐獻：用視窗而非接在卡片牆下方。
+              十尊以上時，表單長在整面卡片牆底下會離被點的卡片很遠，
+              使用者按完會以為沒反應。 */}
           {repairSelectedProj && (
-            <div className="mt-8 max-w-lg mx-auto">
+            <div
+              className="fixed inset-0 z-[70] overflow-y-auto bg-black/60 backdrop-blur-sm"
+              onClick={() => setRepairSelectedProj(null)}
+            >
+            {/* 捲動容器要是外層的 fixed，置中放在內層並加 min-h-full。
+                若把 items-center 直接放在 fixed+overflow 的同一層，內容比視窗高時
+                上緣會被推到捲動起點之上、永遠捲不到——關閉鈕與神尊的頭就消失了。 */}
+            <div className="flex min-h-full items-start sm:items-center justify-center p-0 sm:p-6">
+            <div
+              className="bg-white w-full sm:max-w-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* 大圖：這是使用者要求的重點——看得清楚神尊本尊 */}
+              <div className="relative">
+                {repairSelectedProj.imageUrl
+                  ? <img src={repairSelectedProj.imageUrl} alt={repairSelectedProj.name}
+                      className="w-full max-h-[55vh] object-contain bg-gradient-to-b from-amber-50 to-white" />
+                  : <div className="w-full h-56 bg-amber-50 flex items-center justify-center">
+                      <Flame className="w-16 h-16 text-amber-200" />
+                    </div>}
+                <button type="button" onClick={() => setRepairSelectedProj(null)}
+                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <h4 className="text-2xl font-bold text-temple-dark font-serif mb-1">{repairSelectedProj.name}</h4>
+                <p className="text-xs text-amber-600 mb-3">專款專用 · 修復捐獻</p>
+                {repairSelectedProj.description && (
+                  <p className="text-sm text-gray-600 leading-relaxed mb-4 whitespace-pre-wrap">{repairSelectedProj.description}</p>
+                )}
+                {repairSelectedProj.targetAmount > 0 && (() => {
+                  const raised = repairProjectTotals[repairSelectedProj.id] || 0;
+                  const pct = Math.min(100, Math.round((raised / repairSelectedProj.targetAmount) * 100));
+                  return (
+                    <div className="mb-5 space-y-1">
+                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>已募 NT${raised.toLocaleString()}</span>
+                        <span>目標 NT${repairSelectedProj.targetAmount.toLocaleString()}（{pct}%）</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
               {repairFormStatus === 'success' ? (
                 <div className="text-center py-8 bg-green-50 rounded-2xl border border-green-200">
                   <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
@@ -2101,19 +3000,8 @@ const App: React.FC = () => {
                   } catch {
                     setRepairFormStatus('error');
                   }
-                }} className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 space-y-4">
-                  <div className="flex items-center gap-3 pb-3 border-b border-amber-200">
-                    {repairSelectedProj.imageUrl
-                      ? <img src={repairSelectedProj.imageUrl} alt={repairSelectedProj.name} className="w-12 h-12 rounded-lg object-cover" />
-                      : <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>}
-                    <div>
-                      <p className="font-bold text-amber-800 text-lg">{repairSelectedProj.name}</p>
-                      <p className="text-xs text-amber-600">專款專用 · 修復捐獻</p>
-                    </div>
-                    <button type="button" onClick={() => setRepairSelectedProj(null)} className="ml-auto text-gray-400 hover:text-gray-600">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
+                }} className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 sm:p-6 space-y-4">
+                  {/* 神尊名稱與大圖已在視窗上方，這裡不重複 */}
                   <div className="flex items-center gap-2">
                     <input required type="text" placeholder="大德姓名 *" value={repairName}
                       onChange={e => setRepairName(e.target.value)}
@@ -2147,18 +3035,26 @@ const App: React.FC = () => {
                   </button>
                 </form>
               )}
+              </div>
+            </div>
+            </div>
             </div>
           )}
         </div>
       </section>
       )}
+      </div>
+      )}
 
-{/* Donation Section */}
+      {/* 隨喜捐獻仍留在首頁 */}
+      {page === 'home' && (
       <section id="donation" className="py-20 bg-temple-bg relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
               功德無量
+              <span className="w-8 h-1 bg-temple-gold" />
             </h2>
             <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
               隨喜捐獻 / 護持項目
@@ -2320,8 +3216,72 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+      )}
 
-      {/* Footer */}
+      {/* ── 常見問題（首頁；內容來自 content/faq.json，與結構化資料共用同一份）── */}
+      {page === 'home' && (
+      <section id="faq" className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* 標題結構與其他區塊一致：小標＋大標＋菱形分隔飾＋說明（見 #deities、#donation） */}
+          <div className="text-center mb-12 sr sr-up">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
+              有問必答
+              <span className="w-8 h-1 bg-temple-gold" />
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+              常見問題
+            </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              初次前來或有疑問，先看看這裡。
+            </p>
+          </div>
+          {/*
+            折疊式：首頁本來就長，八題全展開會再多推一大段。
+            用原生 <details> 而不是自己管展開狀態——鍵盤可操作、關閉 JS 也能展開，
+            重點是**答案的文字一直都在 DOM 裡**，只是視覺上收起來。
+            Google 的 FAQPage 規則要求標記的內容使用者要看得到，
+            「點一下就展開」算數；真的把文字拿掉就不算了。
+            樣式在 index.css 的 .faq-item（箭頭是用邊框畫的，沒有多一個圖檔）。
+          */}
+          <div className="divide-y divide-temple-gold/20 border-y border-temple-gold/20">
+            {faqItems.map((item) => (
+              <details key={item.q} className="faq-item sr sr-up">
+                <summary>
+                  <span className="text-temple-gold mr-3 select-none">問</span>
+                  <span className="flex-1">{item.q}</span>
+                  <span className="faq-chevron" aria-hidden="true" />
+                </summary>
+                <div className="faq-answer">
+                  <span className="text-temple-gold/60 mr-3 select-none">答</span>
+                  <span>{item.a}</span>
+                </div>
+              </details>
+            ))}
+          </div>
+          <p className="text-center text-sm text-gray-500 mt-8">
+            還有其他問題，歡迎透過{' '}
+            <a
+              href={getLineUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackLine('faq')}
+              className="text-temple-gold hover:text-temple-red underline underline-offset-4"
+            >
+              官方 LINE 帳號
+            </a>
+            {' '}或電話 <a href="tel:0953945349" className="text-temple-gold hover:text-temple-red">0953-945-349</a> 詢問。
+          </p>
+        </div>
+      </section>
+      )}
+
+      {/* Footer（各分頁共用） */}
       <footer id="contact" className="bg-temple-dark text-white border-t border-white/10 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-12 mb-12">
@@ -2335,22 +3295,31 @@ const App: React.FC = () => {
                 歡迎各界善男信女蒞臨參香指導，共沐神恩。
               </p>
               <div className="flex space-x-4">
-                <button
-                  onClick={() => handleLineClick('footer')}
-                  className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
-                  title="加入 LINE 官方帳號"
-                >
-                  <span className="sr-only">LINE</span>
-                  <LineIcon className="h-5 w-5" />
-                </button>
-                <a href="https://www.facebook.com/100064534546570" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
-                  <span className="sr-only">Facebook</span>
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
-                </a>
-                <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
-                  <span className="sr-only">Instagram</span>
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.484 2h.05m0 5.238a5.238 5.238 0 110 10.476 5.238 5.238 0 010-10.476zm0 2.162a3.077 3.077 0 100 6.154 3.077 3.077 0 000-6.154zM20.24 6.388a1.44 1.44 0 10-2.88 0 1.44 1.44 0 002.88 0z" clipRule="evenodd" /></svg>
-                </a>
+                {visibleSocials(social).map(({ key, label, url, Icon }) =>
+                  key === 'lineUrl' ? (
+                    <button
+                      key={key}
+                      onClick={() => openLine('footer')}
+                      className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
+                      title={label}
+                    >
+                      <span className="sr-only">{label}</span>
+                      <Icon className="h-5 w-5" />
+                    </button>
+                  ) : (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={label}
+                      className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors"
+                    >
+                      <span className="sr-only">{label}</span>
+                      <Icon className="h-5 w-5" />
+                    </a>
+                  )
+                )}
               </div>
             </div>
 
@@ -2363,11 +3332,11 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Phone className="w-5 h-5 text-temple-red" />
-                  <span>(02) 2345-6789</span>
+                  <a href="tel:0953945349" className="hover:text-temple-gold transition-colors">0953-945-349</a>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Clock className="w-5 h-5 text-temple-red" />
-                  <span>每日 06:00 - 21:00</span>
+                  <span>每日 06:00 - 22:30</span>
                 </div>
               </div>
             </div>
@@ -2391,7 +3360,7 @@ const App: React.FC = () => {
                 />
               </a>
               <p className="text-sm text-gray-500 mt-3">
-                📍 點擊地圖可在 Google Maps 中開啟導航
+                點擊地圖可在 Google Maps 中開啟導航
               </p>
             </div>
           </div>
@@ -2417,11 +3386,18 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Floating LINE Button */}
+      {/* Floating LINE Button — 手機放右下角避免遮住左側選單，桌機維持左下角；後台把 LINE 網址清空就整顆不顯示。
+          首頁的 Hero 期間先收起來：它會壓在三尊神明的裙擺上，也綁死了 Hero 按鈕能放的位置。
+          捲過 Hero 才淡入；其他分頁沒有 Hero，一進來就顯示。
+          用 opacity＋pointer-events 隱藏而不是不渲染，才有淡入淡出；同時關掉 aria 與 Tab 焦點。 */}
+      {social.lineUrl.trim() !== '' && (
       <button
-        onClick={() => handleLineClick('floating')}
+        onClick={() => openLine('floating')}
         title="加入 LINE 官方帳號"
-        className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[60] flex flex-col items-center gap-1 group"
+        aria-hidden={hideLineFloat}
+        tabIndex={hideLineFloat ? -1 : 0}
+        className={`fixed bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8 z-[60] flex flex-col items-center gap-1 group
+          transition-all duration-500 ${hideLineFloat ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'}`}
       >
         {/* Pulse ring */}
         <span className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#06C755]/40 animate-ping" />
@@ -2432,17 +3408,20 @@ const App: React.FC = () => {
           加入 LINE
         </span>
       </button>
+      )}
 
       {/* Member Portal */}
       {showMemberPortal && (
-        <MemberPortal
-          pendingPhone={memberPortalPendingPhone}
-          onClose={() => {
-            setShowMemberPortal(false);
-            setMemberPortalPendingPhone('');
-            if (member) loadMemberContacts();
-          }}
-        />
+        <Suspense fallback={<PageLoading />}>
+          <MemberPortal
+            pendingPhone={memberPortalPendingPhone}
+            onClose={() => {
+              setShowMemberPortal(false);
+              setMemberPortalPendingPhone('');
+              if (member) loadMemberContacts();
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Contact Picker Modal */}
@@ -2640,7 +3619,7 @@ const App: React.FC = () => {
               <div className="bg-temple-bg rounded-xl p-4">
                 <h3 className="font-bold text-gray-800 mb-2">聯絡資訊</h3>
                 <p>台北古亭和聖壇　｜　100臺北市中正區晉江街72巷9號</p>
-                <p>電話：(02) 2345-6789　｜　開放時間：每日 06:00 – 21:00</p>
+                <p>電話：0953-945-349　｜　開放時間：每日 06:00 – 22:30</p>
               </div>
             </div>
             {/* Footer */}
@@ -2659,6 +3638,9 @@ const App: React.FC = () => {
           onClick={handleCloseLoginModal}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-login-title"
             className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -2668,10 +3650,11 @@ const App: React.FC = () => {
                 <div className="bg-white/20 p-2 rounded-full">
                   <Lock className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-white text-lg font-bold font-serif tracking-wide">管理員登入</h2>
+                <h2 id="admin-login-title" className="text-white text-lg font-bold font-serif tracking-wide">管理員登入</h2>
               </div>
               <button
                 onClick={handleCloseLoginModal}
+                aria-label="關閉管理員登入"
                 className="text-white/70 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -2683,11 +3666,14 @@ const App: React.FC = () => {
               <p className="text-gray-500 text-sm mb-5">請輸入管理員帳號與密碼以進入後台管理系統。</p>
 
               <div className="mb-3">
+                <label htmlFor="admin-email" className="sr-only">管理員電子郵件</label>
                 <input
+                  id="admin-email"
                   type="email"
                   value={loginEmail}
                   onChange={(e) => { setLoginEmail(e.target.value); setLoginError(''); }}
                   placeholder="管理員電子郵件"
+                  autoComplete="username"
                   autoFocus
                   required
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent"
@@ -2695,17 +3681,21 @@ const App: React.FC = () => {
               </div>
 
               <div className="relative mb-2">
+                <label htmlFor="admin-password" className="sr-only">密碼</label>
                 <input
+                  id="admin-password"
                   type={showPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => { setLoginPassword(e.target.value); setLoginError(''); }}
                   placeholder="密碼"
+                  autoComplete="current-password"
                   required
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

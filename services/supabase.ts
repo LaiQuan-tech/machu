@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import type { DevoteeOverride } from './devoteeRoster';
+import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -90,7 +91,12 @@ export const getBookingSessions = async (activeOnly = true): Promise<BookingSess
     .select('*')
     .order('session_date', { ascending: true })
     .order('session_time', { ascending: true });
-  if (activeOnly) query = query.eq('is_active', true);
+  if (activeOnly) {
+    // 前台只顯示今天（含）以後的場次，過期場次不可再報名
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    query = query.eq('is_active', true).gte('session_date', today);
+  }
   const { data, error } = await query;
   if (error) { console.error('Error fetching booking sessions:', error); throw error; }
   return (data || []).map(r => ({
@@ -104,15 +110,12 @@ export const getBookingSessions = async (activeOnly = true): Promise<BookingSess
 };
 
 export const getBookingCountsBySession = async (): Promise<Record<string, number>> => {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('session_id')
-    .not('session_id', 'is', null)
-    .neq('status', BookingStatus.CANCELLED);
+  // 走 SECURITY DEFINER RPC：RLS 收緊後 anon 不可直接讀 bookings，只回傳統計數
+  const { data, error } = await supabase.rpc('get_booking_session_counts');
   if (error) { console.error('Error fetching booking counts:', error); return {}; }
   const counts: Record<string, number> = {};
-  (data || []).forEach((r: any) => {
-    if (r.session_id) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
+  (data || []).forEach((r: { session_id: string; cnt: number }) => {
+    counts[r.session_id] = Number(r.cnt);
   });
   return counts;
 };
@@ -223,9 +226,46 @@ export const getBulletins = async (adminMode = false): Promise<BulletinRecord[]>
     isPinned: row.is_pinned,
     publishAt: row.publish_at ?? null,
     linkedService: row.linked_service ?? null,
+    imageUrl: row.image_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
+};
+
+/**
+ * 上傳前在瀏覽器端縮圖。
+ * 手機直出照片動輒 4-8MB、4000px 寬，直接上傳會讓前台載入極慢
+ * （實測有一張 4.7MB 的公告照片）。長邊壓到 1600px、JPEG 82% 後
+ * 通常落在 200-400KB，網頁顯示尺寸最多也才 1000px 左右，看不出差別。
+ */
+const shrinkImage = async (file: File, maxEdge = 1600, quality = 0.82): Promise<Blob> => {
+  // 動畫 GIF 縮圖會只剩第一張，直接原檔上傳
+  if (file.type === 'image/gif') return file;
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file; // 瀏覽器不支援就原檔上傳，不要讓使用者傳不了
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  if (scale === 1 && file.size <= 800 * 1024) return file; // already small enough
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', quality));
+  // 壓不贏原檔就用原檔（例如本來就是小張的 PNG 去背圖）
+  return blob && blob.size < file.size ? blob : file;
+};
+
+/** 活動照片上傳，回傳公開 URL（與 uploadRepairProjectImage 同慣例） */
+export const uploadBulletinImage = async (file: File): Promise<string> => {
+  const blob = await shrinkImage(file);
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
+  const path = `bulletins/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
+  if (error) { console.error('Error uploading bulletin image:', error); throw error; }
+  const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 };
 
 export const createBulletin = async (data: BulletinData): Promise<boolean> => {
@@ -236,6 +276,7 @@ export const createBulletin = async (data: BulletinData): Promise<boolean> => {
     is_pinned: data.isPinned,
     publish_at: data.publishAt ?? null,
     linked_service: data.linkedService ?? null,
+    image_url: data.imageUrl ?? null,
   }]);
 
   if (error) {
@@ -253,6 +294,7 @@ export const updateBulletin = async (id: string, data: Partial<BulletinData>): P
   if (data.isPinned !== undefined) updateData.is_pinned = data.isPinned;
   if (data.publishAt !== undefined) updateData.publish_at = data.publishAt ?? null;
   if (data.linkedService !== undefined) updateData.linked_service = data.linkedService ?? null;
+  if (data.imageUrl !== undefined) updateData.image_url = data.imageUrl ?? null;
 
   const { error } = await supabase
     .from('bulletins')
@@ -527,13 +569,15 @@ export const deleteDeity = async (id: string): Promise<boolean> => {
 };
 
 export const uploadDeityImage = async (file: File): Promise<string> => {
-  const ext = file.name.split('.').pop() || 'jpg';
+  // 神明照片同樣先縮圖再上傳（見 shrinkImage 的說明）
+  const blob = await shrinkImage(file);
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop() || 'jpg');
   const storagePath = `deities/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
     .from(SITE_IMAGES_BUCKET)
-    .upload(storagePath, file, {
-      contentType: file.type,
+    .upload(storagePath, blob, {
+      contentType: blob.type,
       cacheControl: '3600',
       upsert: false,
     });
@@ -900,6 +944,28 @@ export const getMemberContacts = async (): Promise<MemberContact[]> => {
   }));
 };
 
+/** 後台信眾管理用：取「全部會員」的通訊錄（需管理員權限；RLS 由 is_admin 政策把關） */
+export const getAllMemberContactsAdmin = async (): Promise<MemberContact[]> => {
+  const { data, error } = await supabase
+    .from('member_contacts')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) { console.error('Error fetching all member contacts:', error); return []; }
+  return (data || []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    contactNumber: row.contact_number ?? undefined,
+    label: row.label,
+    name: row.name,
+    phone: row.phone,
+    birthDate: row.birth_date,
+    zodiac: row.zodiac || undefined,
+    gender: row.gender || undefined,
+    address: row.address || undefined,
+    createdAt: row.created_at,
+  }));
+};
+
 export const createMemberContact = async (data: MemberContactData): Promise<boolean> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -1167,6 +1233,17 @@ export const deleteBlessingEvent = async (id: string): Promise<boolean> => {
 
 // ─── Blessing Registrations (祈福報名) ──────────────────────────────────────
 
+/** 前台祈福 modal 用：只取「各方案已報名數」與「各供品已認領數」統計，不含個資（anon 可呼叫） */
+export const getBlessingEventStats = async (eventId: string): Promise<{ packageCounts: Record<string, number>; offeringCounts: Record<string, number> }> => {
+  const { data, error } = await supabase.rpc('get_blessing_event_stats', { p_event_id: eventId });
+  if (error) { console.error('Error fetching blessing stats:', error); return { packageCounts: {}, offeringCounts: {} }; }
+  const row = data as { package_counts?: Record<string, number>; offering_counts?: Record<string, number> } | null;
+  return {
+    packageCounts: row?.package_counts ?? {},
+    offeringCounts: row?.offering_counts ?? {},
+  };
+};
+
 export const getBlessingRegistrations = async (eventId?: string): Promise<BlessingRegistrationRecord[]> => {
   let q = supabase.from('blessing_registrations').select('*').order('created_at', { ascending: false });
   if (eventId) q = q.eq('event_id', eventId);
@@ -1307,55 +1384,56 @@ const mapSharedSession = (row: any): SharedSessionRecord => ({
   expiresAt:   row.expires_at,
 });
 
+// 揪團採 capability 模式：知道場次 UUID（分享連結）即可讀寫「該場次」。
+// 寫入由客戶端產生 UUID、不做 .select() 讀回（anon 無 SELECT 權限）；
+// 讀取與送出走 SECURITY DEFINER RPC，避免開放整表查詢洩漏個資。
+
 export const createSharedSession = async (d: SharedSessionData): Promise<SharedSessionRecord> => {
-  const { data, error } = await supabase
+  const id = crypto.randomUUID();
+  const { error } = await supabase
     .from('shared_sessions')
-    .insert({ service_type: d.serviceType, config: d.config, notes: d.notes || null })
-    .select()
-    .single();
+    .insert({ id, service_type: d.serviceType, config: d.config, notes: d.notes || null });
   if (error) { console.error(error); throw error; }
-  return mapSharedSession({ ...data, shared_session_entries: [] });
+  return mapSharedSession({
+    id, service_type: d.serviceType, config: d.config, notes: d.notes || null,
+    status: 'open', shared_session_entries: [],
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  });
 };
 
 export const getSharedSession = async (id: string): Promise<SharedSessionRecord | null> => {
-  const { data, error } = await supabase
-    .from('shared_sessions')
-    .select('*, shared_session_entries(*)')
-    .eq('id', id)
-    .order('created_at', { referencedTable: 'shared_session_entries', ascending: true })
-    .single();
-  if (error) return null;
-  return mapSharedSession(data);
+  const { data, error } = await supabase.rpc('get_shared_session', { p_id: id });
+  if (error || !data) return null;
+  const row = data as { session: any; entries: any[] } | null;
+  if (!row?.session) return null;
+  return mapSharedSession({ ...row.session, shared_session_entries: row.entries ?? [] });
 };
 
 export const addSharedEntry = async (d: SharedEntryData): Promise<SharedEntryRecord> => {
-  const { data, error } = await supabase
-    .from('shared_session_entries')
-    .insert({
-      session_id:    d.sessionId,
-      name:          d.name,
-      phone:         d.phone        || null,
-      birth_date:    d.birthDate    || null,
-      zodiac:        d.zodiac       || null,
-      gender:        d.gender       || null,
-      address:       d.address      || null,
-      contact_label: d.contactLabel || null,
-      service_id:    d.serviceId    || null,
-      package_id:    d.packageId    || null,
-      booking_type:  d.bookingType  || null,
-      notes:         d.notes        || null,
-    })
-    .select()
-    .single();
+  const id = crypto.randomUUID();
+  const payload = {
+    id,
+    session_id:    d.sessionId,
+    name:          d.name,
+    phone:         d.phone        || null,
+    birth_date:    d.birthDate    || null,
+    zodiac:        d.zodiac       || null,
+    gender:        d.gender       || null,
+    address:       d.address      || null,
+    contact_label: d.contactLabel || null,
+    service_id:    d.serviceId    || null,
+    package_id:    d.packageId    || null,
+    booking_type:  d.bookingType  || null,
+    notes:         d.notes        || null,
+  };
+  const { error } = await supabase.from('shared_session_entries').insert(payload);
   if (error) { console.error(error); throw error; }
-  return mapSharedEntry(data);
+  return mapSharedEntry({ ...payload, created_at: new Date().toISOString() });
 };
 
 export const markSharedSessionSubmitted = async (id: string): Promise<boolean> => {
-  const { error } = await supabase
-    .from('shared_sessions')
-    .update({ status: 'submitted' })
-    .eq('id', id);
+  const { error } = await supabase.rpc('mark_shared_session_submitted', { p_id: id });
   if (error) { console.error(error); throw error; }
   return true;
 };
@@ -1380,14 +1458,12 @@ export const getRepairProjects = async (): Promise<RepairProject[]> => {
 };
 
 export const getRepairProjectTotals = async (): Promise<Record<string, number>> => {
-  const { data, error } = await supabase
-    .from('donations')
-    .select('repair_project_id, amount')
-    .not('repair_project_id', 'is', null);
+  // 走 SECURITY DEFINER RPC：RLS 收緊後 anon 不可直接讀 donations，只回傳各專案累計
+  const { data, error } = await supabase.rpc('get_repair_totals');
   if (error) { console.error(error); throw error; }
   const totals: Record<string, number> = {};
-  for (const row of data || []) {
-    totals[row.repair_project_id] = (totals[row.repair_project_id] || 0) + Number(row.amount);
+  for (const row of (data || []) as { repair_project_id: string; total: number }[]) {
+    totals[row.repair_project_id] = Number(row.total);
   }
   return totals;
 };
@@ -1425,12 +1501,136 @@ export const deleteRepairProject = async (id: string): Promise<boolean> => {
 };
 
 export const uploadRepairProjectImage = async (file: File): Promise<string> => {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  // 神尊照片會有十幾張，同樣先縮圖再上傳（見 shrinkImage 的說明）
+  const blob = await shrinkImage(file);
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const path = `repair-projects/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
   if (error) { console.error(error); throw error; }
   const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
+};
+
+// ─── 網站設定：追蹤碼 ───────────────────────────────────────────────────────
+
+const EMPTY_ANALYTICS: AnalyticsSettings = { ga4Id: '', metaPixelId: '', gtmId: '' };
+
+/** 讀取追蹤碼設定。任何錯誤都回空值——追蹤碼掛不上不該讓整個網站失敗 */
+export const getAnalyticsSettings = async (): Promise<AnalyticsSettings> => {
+  try {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('key,value')
+      .in('key', ['ga4_id', 'meta_pixel_id', 'gtm_id']);
+    if (error) throw error;
+    const map = new Map((data ?? []).map(r => [r.key as string, (r.value ?? '') as string]));
+    return {
+      ga4Id: (map.get('ga4_id') ?? '').trim(),
+      metaPixelId: (map.get('meta_pixel_id') ?? '').trim(),
+      gtmId: (map.get('gtm_id') ?? '').trim(),
+    };
+  } catch (e) {
+    console.warn('讀取追蹤碼設定失敗，本次不掛載追蹤碼:', e);
+    return EMPTY_ANALYTICS;
+  }
+};
+
+export const saveAnalyticsSettings = async (s: AnalyticsSettings): Promise<boolean> => {
+  const rows = [
+    { key: 'ga4_id', value: s.ga4Id.trim(), updated_at: new Date().toISOString() },
+    { key: 'meta_pixel_id', value: s.metaPixelId.trim(), updated_at: new Date().toISOString() },
+    { key: 'gtm_id', value: s.gtmId.trim(), updated_at: new Date().toISOString() },
+  ];
+  const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
+  if (error) {
+    console.error('Error saving analytics settings:', error);
+    throw error;
+  }
+  return true;
+};
+
+// ─── 信眾名冊人工校正 ───────────────────────────────────────────────────────
+
+/** 讀取校正規則。表還沒建好時回空陣列——名冊仍可正常顯示，只是沒有校正 */
+export const getDevoteeOverrides = async (): Promise<DevoteeOverride[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('devotee_overrides')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(r => ({
+      id: r.id,
+      kind: r.kind as DevoteeOverride['kind'],
+      nameKey: r.name_key,
+      targetKey: r.target_key ?? null,
+      payload: r.payload ?? null,
+      note: r.note ?? null,
+    }));
+  } catch (e) {
+    console.warn('讀取名冊校正規則失敗，本次不套用校正:', e);
+    return [];
+  }
+};
+
+/** 新增或覆蓋一條校正規則（同 kind + name_key 只留一筆） */
+export const saveDevoteeOverride = async (o: DevoteeOverride): Promise<boolean> => {
+  const { error } = await supabase.from('devotee_overrides').upsert({
+    kind: o.kind,
+    name_key: o.nameKey,
+    target_key: o.targetKey ?? null,
+    payload: o.payload ?? null,
+    note: o.note ?? null,
+  }, { onConflict: 'kind,name_key' });
+  if (error) { console.error('Error saving devotee override:', error); throw error; }
+  return true;
+};
+
+export const deleteDevoteeOverride = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('devotee_overrides').delete().eq('id', id);
+  if (error) { console.error('Error deleting devotee override:', error); throw error; }
+  return true;
+};
+
+// ─── 網站設定：社群帳號 ─────────────────────────────────────────────────────
+
+/** 廟方原本就在用的帳號，當作預設值——設定表還沒建好時前台不會突然少一排圖示 */
+export const DEFAULT_SOCIAL: SocialSettings = {
+  lineUrl: 'https://lin.ee/lj0gLqR',
+  facebookUrl: 'https://www.facebook.com/100064534546570',
+  facebookGroupUrl: '',
+  instagramUrl: '',
+  tiktokUrl: '',
+};
+
+export const getSocialSettings = async (): Promise<SocialSettings> => {
+  try {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('key,value')
+      .in('key', SOCIAL_KEYS.map(k => k.dbKey));
+    if (error) throw error;
+    // 設定表沒有任何社群資料時（migration 還沒跑）退回預設值
+    if (!data || data.length === 0) return DEFAULT_SOCIAL;
+    const map = new Map(data.map(r => [r.key as string, ((r.value ?? '') as string).trim()]));
+    const out = {} as SocialSettings;
+    for (const k of SOCIAL_KEYS) out[k.field] = map.get(k.dbKey) ?? '';
+    return out;
+  } catch (e) {
+    console.warn('讀取社群設定失敗，改用預設值:', e);
+    return DEFAULT_SOCIAL;
+  }
+};
+
+export const saveSocialSettings = async (s: SocialSettings): Promise<boolean> => {
+  const now = new Date().toISOString();
+  const rows = SOCIAL_KEYS.map(k => ({ key: k.dbKey, value: s[k.field].trim(), updated_at: now }));
+  const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
+  if (error) {
+    console.error('Error saving social settings:', error);
+    throw error;
+  }
+  return true;
 };
 
 // ─── LINE Click Tracking ───────────────────────────────────────────────────
@@ -1444,13 +1644,516 @@ export const trackLineClick = async (source: string): Promise<void> => {
   }
 };
 
-/** 取得 LINE 導流統計（今日 / 累計） */
+/** 取得 LINE 導流統計（今日 / 累計）；「今日」以本地時區計算，避免台灣早上 8 點前統計錯置 */
 export const getLineClickStats = async (): Promise<{ today: number; total: number }> => {
   const { data, error } = await supabase
     .from('line_clicks')
     .select('clicked_at');
   if (error || !data) return { today: 0, total: 0 };
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const today = data.filter(r => (r.clicked_at as string).slice(0, 10) === todayStr).length;
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayStr = localDateStr(new Date());
+  const today = data.filter(r => localDateStr(new Date(r.clicked_at as string)) === todayStr).length;
   return { today, total: data.length };
+};
+
+// ─── 法會報名 ────────────────────────────────────────────────────────────────
+
+export interface FahuiRegistrationData {
+  contact: { name: string; gender?: string; phone: string; address: string; lineId: string; email?: string; accountLast5?: string; birthDate?: string; zodiac?: string };
+  entries: Record<string, Array<Record<string, string>>>;
+  total: number;
+  zanpuOffering?: string;
+  mealSponsor?: number;
+  notes?: string;
+}
+
+export const submitFahuiRegistration = async (data: FahuiRegistrationData): Promise<void> => {
+  // 不使用 .select() 讀回：anon 角色僅有 INSERT 權限、無 SELECT 權限，
+  // 讀回會觸發 RLS 阻擋。送出成功即可，無需回傳資料。
+  const { error } = await supabase
+    .from('fahui_registrations')
+    .insert([{
+      name: data.contact.name,
+      contact_gender: data.contact.gender || null,
+      phone: data.contact.phone,
+      address: data.contact.address,
+      line_id: data.contact.lineId || null,
+      email: data.contact.email?.trim() || null,
+      account_last5: data.contact.accountLast5?.trim() || null,
+      contact_birth_date: data.contact.birthDate || null,
+      contact_zodiac: data.contact.zodiac || null,
+      entries: data.entries,
+      zanpu_offering: data.zanpuOffering || null,
+      meal_sponsor: data.mealSponsor || 0,
+      notes: data.notes || null,
+      total_amount: data.total,
+    }]);
+
+  if (error) {
+    console.error('Error submitting fahui registration:', error);
+    throw error;
+  }
+};
+
+export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]> => {
+  const { data, error } = await supabase
+    .from('fahui_registrations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching fahui registrations:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    name: row.name,
+    phone: row.phone,
+    address: row.address,
+    lineId: row.line_id || undefined,
+    email: row.email || undefined,
+    contactGender: row.contact_gender || undefined,
+    contactBirthDate: row.contact_birth_date || undefined,
+    contactZodiac: row.contact_zodiac || undefined,
+    entries: row.entries || {},
+    zanpuOffering: row.zanpu_offering || undefined,
+    mealSponsor: row.meal_sponsor ?? 0,
+    notes: row.notes || undefined,
+    totalAmount: row.total_amount ?? 0,
+    status: row.status || 'pending',
+    paymentMethod: row.payment_method || undefined,
+    paymentDate: row.payment_date || undefined,
+    accountLast5: row.account_last5 || undefined,
+    financeCheck: row.finance_check ?? false,
+    // 這欄原本是 BOOLEAN。若 fahui_thanks_letter_no.sql 還沒跑，讀到的會是 true/false，
+    // 直接塞進文字欄位會讓輸入框顯示「true」。只認字串，其餘一律當成未填。
+    thanksLetter: typeof row.thanks_letter === 'string' ? (row.thanks_letter || undefined) : undefined,
+    accountingCheck: row.accounting_check ?? false,
+    adminNote: row.admin_note || undefined,
+  }));
+};
+
+/** 更新後台對帳欄位（只更新有帶到的欄位） */
+export const updateFahuiReconcile = async (id: string, patch: FahuiReconcilePatch): Promise<void> => {
+  const row: Record<string, unknown> = {};
+  if ('paymentMethod' in patch)   row.payment_method   = patch.paymentMethod || null;
+  if ('paymentDate' in patch)     row.payment_date     = patch.paymentDate || null;
+  if ('accountLast5' in patch)    row.account_last5    = patch.accountLast5 || null;
+  if ('financeCheck' in patch)    row.finance_check    = patch.financeCheck;
+  if ('thanksLetter' in patch)    row.thanks_letter    = patch.thanksLetter || null;
+  if ('accountingCheck' in patch) row.accounting_check = patch.accountingCheck;
+  if ('adminNote' in patch)       row.admin_note       = patch.adminNote || null;
+  if (Object.keys(row).length === 0) return;
+
+  const { error } = await supabase.from('fahui_registrations').update(row).eq('id', id);
+  if (error) { console.error('Error updating fahui reconcile fields:', error); throw error; }
+};
+
+/** 更新報名項目內容（後台修正／回補欄位，例如既有報名缺的性別）。整包 entries 覆寫。 */
+export const updateFahuiEntries = async (id: string, entries: Record<string, Array<Record<string, string>>>): Promise<void> => {
+  const { error } = await supabase.from('fahui_registrations').update({ entries }).eq('id', id);
+  if (error) { console.error('Error updating fahui entries:', error); throw error; }
+};
+
+/** 更新聯絡人基本資料（後台修正用；不含報名項目） */
+export const updateFahuiContact = async (id: string, patch: { name?: string; gender?: string | null; phone?: string; address?: string; lineId?: string | null; email?: string | null }): Promise<void> => {
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.gender !== undefined) row.contact_gender = patch.gender || null;
+  if (patch.phone !== undefined) row.phone = patch.phone;
+  if (patch.address !== undefined) row.address = patch.address;
+  if (patch.lineId !== undefined) row.line_id = patch.lineId || null;
+  if (patch.email !== undefined) row.email = patch.email || null;
+  if (Object.keys(row).length === 0) return;
+  const { error } = await supabase.from('fahui_registrations').update(row).eq('id', id);
+  if (error) { console.error('Error updating fahui contact:', error); throw error; }
+};
+export const updateFahuiStatus = async (id: string, status: string): Promise<void> => {
+  const { error } = await supabase
+    .from('fahui_registrations')
+    .update({ status })
+    .eq('id', id);
+  if (error) { console.error('Error updating fahui status:', error); throw error; }
+};
+
+export const deleteFahuiRegistration = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('fahui_registrations')
+    .delete()
+    .eq('id', id);
+  if (error) { console.error('Error deleting fahui registration:', error); throw error; }
+};
+
+// ─── 志工報名 ────────────────────────────────────────────────────────────────
+
+export interface VolunteerRegistrationData {
+  name: string;
+  phone: string;
+  address: string;
+  diet?: string;
+  birthDate?: string;
+  zodiac?: string;
+  lineId?: string;
+  availability?: Record<string, string[]>;
+  availabilityNote?: string;
+}
+
+export const submitVolunteerRegistration = async (data: VolunteerRegistrationData): Promise<void> => {
+  // 同法會：anon 僅有 INSERT 權限，不做 .select() 讀回
+  const { error } = await supabase
+    .from('volunteer_registrations')
+    .insert([{
+      name: data.name,
+      phone: data.phone,
+      address: data.address,
+      diet: data.diet || null,
+      birth_date: data.birthDate || null,
+      zodiac: data.zodiac || null,
+      line_id: data.lineId || null,
+      availability: data.availability && Object.keys(data.availability).length ? data.availability : null,
+      availability_note: data.availabilityNote || null,
+    }]);
+  if (error) { console.error('Error submitting volunteer registration:', error); throw error; }
+};
+
+export const getVolunteerRegistrations = async (): Promise<VolunteerRegistrationRecord[]> => {
+  const { data, error } = await supabase
+    .from('volunteer_registrations')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Error fetching volunteer registrations:', error); throw error; }
+  return (data || []).map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    name: row.name,
+    phone: row.phone,
+    address: row.address,
+    diet: row.diet || undefined,
+    birthDate: row.birth_date || undefined,
+    zodiac: row.zodiac || undefined,
+    lineId: row.line_id || undefined,
+    availability: row.availability || undefined,
+    availabilityNote: row.availability_note || undefined,
+    status: row.status || 'pending',
+  }));
+};
+
+export const updateVolunteerStatus = async (id: string, status: string): Promise<void> => {
+  const { error } = await supabase.from('volunteer_registrations').update({ status }).eq('id', id);
+  if (error) { console.error('Error updating volunteer status:', error); throw error; }
+};
+
+export const deleteVolunteerRegistration = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('volunteer_registrations').delete().eq('id', id);
+  if (error) { console.error('Error deleting volunteer registration:', error); throw error; }
+};
+
+// ─── 關於我們（後台可編輯的圖文段落）──────────────────────────────────────────
+
+/** 段落照片上傳，回傳 storage 路徑（不是完整網址，與 site_images 的慣例一致） */
+export const uploadAboutImage = async (file: File): Promise<string> => {
+  const blob = await shrinkImage(file);
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
+  const path = `about/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET)
+    .upload(path, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
+  if (error) { console.error('Error uploading about image:', error); throw error; }
+  return path;
+};
+
+const mapAboutRow = (r: Record<string, unknown>): AboutSection => ({
+  id: String(r.id),
+  page: ((r.page as SectionPage) || 'about'),
+  sortOrder: Number(r.sort_order ?? 0),
+  heading: (r.heading as string) || '',
+  body: (r.body as string) || '',
+  imagePath: (r.image_path as string) || null,
+  caption: (r.caption as string) || '',
+  isVisible: (r.is_visible as boolean) ?? true,
+});
+
+/**
+ * 讀取段落。
+ * @param includeHidden 後台傳 true 才會拿到隱藏的段落；前台不要傳，
+ *   否則就算 RLS 擋住也會多送一次無謂的查詢條件。
+ */
+export const getAboutSections = async (includeHidden = false, page: SectionPage = 'about'): Promise<AboutSection[]> => {
+  let query = supabase.from('about_sections').select('*')
+    .eq('page', page)
+    .order('sort_order', { ascending: true });
+  if (!includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
+  // 這裡不寫 console.error：表還沒建（migration 未跑）對訪客不是錯誤，
+  // 前台會退回保底文案。要不要當成錯誤由呼叫端決定——後台才需要大聲抱怨。
+  if (error) throw error;
+  return (data || []).map(mapAboutRow);
+};
+
+/** 新增一個段落，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
+export const createAboutSection = async (data: AboutSectionData): Promise<string> => {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('about_sections').insert({
+    id,
+    page: data.page,
+    sort_order: data.sortOrder,
+    heading: data.heading || null,
+    body: data.body || null,
+    image_path: data.imagePath,
+    caption: data.caption || null,
+    is_visible: data.isVisible,
+  });
+  if (error) { console.error('Error creating about section:', error); throw error; }
+  return id;
+};
+
+/** 只更新有帶到的欄位 */
+export const updateAboutSection = async (id: string, patch: Partial<AboutSectionData>): Promise<void> => {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if ('sortOrder' in patch)  row.sort_order = patch.sortOrder;
+  if ('heading' in patch)    row.heading    = patch.heading || null;
+  if ('body' in patch)       row.body       = patch.body || null;
+  if ('imagePath' in patch)  row.image_path = patch.imagePath;
+  if ('caption' in patch)    row.caption    = patch.caption || null;
+  if ('isVisible' in patch)  row.is_visible = patch.isVisible;
+  const { error } = await supabase.from('about_sections').update(row).eq('id', id);
+  if (error) { console.error('Error updating about section:', error); throw error; }
+};
+
+export const deleteAboutSection = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('about_sections').delete().eq('id', id);
+  if (error) { console.error('Error deleting about section:', error); throw error; }
+};
+
+/**
+ * 拖拉排序後整批重寫順序。
+ * 逐列 update 而不是 upsert：upsert 會把沒帶到的欄位覆蓋成 null，
+ * 排序只該動 sort_order，內文不能被清掉。
+ */
+export const reorderAboutSections = async (idsInOrder: string[]): Promise<void> => {
+  await Promise.all(idsInOrder.map((id, i) =>
+    supabase.from('about_sections').update({ sort_order: i }).eq('id', id)
+  ));
+};
+
+/**
+ * 觸發正式站重新部署（後台「重新發布」用）。
+ *
+ * 前端**不持有** Deploy Hook 的網址——那等於部署權限，而 VITE_ 開頭的環境變數
+ * 會被打包進 JS 檔案、任何人都看得到。這裡只呼叫自家的 /api/republish，
+ * 並附上登入者的 token，由那支端點確認是管理員後才去打 Vercel。
+ */
+export const requestRepublish = async (): Promise<void> => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('尚未登入');
+  const res = await fetch('/api/republish', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({} as { error?: string }));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+};
+
+// ─── 常見問題（faq_items）────────────────────────────────────────────────
+// 寫法與 about_sections 一致：一列一題、拖拉排序整批重寫 sort_order、
+// id 由客戶端產（anon 不可 select 讀回）。
+
+const mapFaqRow = (r: Record<string, unknown>): FaqItem => ({
+  id: String(r.id),
+  sortOrder: Number(r.sort_order ?? 0),
+  question: String(r.question ?? ''),
+  answer: String(r.answer ?? ''),
+  isVisible: r.is_visible !== false,
+});
+
+export const getFaqItems = async (includeHidden = false): Promise<FaqItem[]> => {
+  let query = supabase.from('faq_items').select('*').order('sort_order', { ascending: true });
+  if (!includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
+  // 不寫 console.error：表還沒建（migration 未跑）對訪客不是錯誤，前台會退回 content/faq.json。
+  // 要不要當成錯誤由呼叫端決定——後台才需要大聲抱怨。
+  if (error) throw error;
+  return (data || []).map(mapFaqRow);
+};
+
+/** 新增一題，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
+export const createFaqItem = async (data: FaqItemData): Promise<string> => {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('faq_items').insert({
+    id,
+    sort_order: data.sortOrder,
+    question: data.question,
+    answer: data.answer,
+    is_visible: data.isVisible,
+  });
+  if (error) { console.error('Error creating faq item:', error); throw error; }
+  return id;
+};
+
+/** 只更新有帶到的欄位 */
+export const updateFaqItem = async (id: string, patch: Partial<FaqItemData>): Promise<void> => {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if ('sortOrder' in patch) row.sort_order = patch.sortOrder;
+  if ('question' in patch)  row.question   = patch.question;
+  if ('answer' in patch)    row.answer     = patch.answer;
+  if ('isVisible' in patch) row.is_visible = patch.isVisible;
+  const { error } = await supabase.from('faq_items').update(row).eq('id', id);
+  if (error) { console.error('Error updating faq item:', error); throw error; }
+};
+
+export const deleteFaqItem = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('faq_items').delete().eq('id', id);
+  if (error) { console.error('Error deleting faq item:', error); throw error; }
+};
+
+/** 拖拉排序後整批重寫順序。逐列 update，不用 upsert（upsert 會把沒帶到的欄位清成 null） */
+export const reorderFaqItems = async (idsInOrder: string[]): Promise<void> => {
+  await Promise.all(idsInOrder.map((id, i) =>
+    supabase.from('faq_items').update({ sort_order: i }).eq('id', id)
+  ));
+};
+
+const ABOUT_FACT_KEYS: { field: keyof AboutFacts; dbKey: string; fallback: string }[] = [
+  { field: 'fact1Value', dbKey: 'about_fact1_value', fallback: '1986' },
+  { field: 'fact1Label', dbKey: 'about_fact1_label', fallback: '建壇年份' },
+  { field: 'fact2Value', dbKey: 'about_fact2_value', fallback: '10萬+' },
+  { field: 'fact2Label', dbKey: 'about_fact2_label', fallback: '年度信眾' },
+];
+
+export const DEFAULT_ABOUT_FACTS: AboutFacts = {
+  fact1Value: '1986', fact1Label: '建壇年份',
+  fact2Value: '10萬+', fact2Label: '年度信眾',
+};
+
+/** 讀不到就退回預設值：Supabase 閒置暫停時首頁不該因此開天窗 */
+export const getAboutFacts = async (): Promise<AboutFacts> => {
+  try {
+    const { data, error } = await supabase.from('site_settings')
+      .select('key,value').in('key', ABOUT_FACT_KEYS.map(k => k.dbKey));
+    if (error) throw error;
+    if (!data || data.length === 0) return DEFAULT_ABOUT_FACTS;
+    const map = new Map(data.map(r => [r.key as string, ((r.value ?? '') as string).trim()]));
+    const out = {} as AboutFacts;
+    for (const k of ABOUT_FACT_KEYS) out[k.field] = map.get(k.dbKey) || k.fallback;
+    return out;
+  } catch (e) {
+    console.warn('讀取關於我們數字卡失敗，改用預設值:', e);
+    return DEFAULT_ABOUT_FACTS;
+  }
+};
+
+export const saveAboutFacts = async (facts: AboutFacts): Promise<void> => {
+  const rows = ABOUT_FACT_KEYS.map(k => ({ key: k.dbKey, value: facts[k.field], updated_at: new Date().toISOString() }));
+  const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
+  if (error) { console.error('Error saving about facts:', error); throw error; }
+};
+
+// ─── 遷址捐款方案（金額當欄、回饋項目當列的矩陣表）──────────────────────────
+
+/** cells 少於 tiers 時補空字串：後台加了一欄但還沒填格子，前台不該因此壞版 */
+const normalizePlanRows = (rows: unknown, tierCount: number): RelocationPlanRow[] =>
+  (Array.isArray(rows) ? rows : []).map((r) => {
+    const row = (r ?? {}) as { label?: unknown; cells?: unknown };
+    const cells = Array.isArray(row.cells) ? row.cells.map(c => String(c ?? '')) : [];
+    while (cells.length < tierCount) cells.push('');
+    return { label: String(row.label ?? ''), cells: cells.slice(0, tierCount) };
+  });
+
+const mapPlanRow = (r: Record<string, unknown>): RelocationPlan => {
+  const tiers = (Array.isArray(r.tiers) ? r.tiers : []).map(t => String(t ?? ''));
+  return {
+    id: String(r.id),
+    sortOrder: Number(r.sort_order ?? 0),
+    title: (r.title as string) || '',
+    amountHeader: (r.amount_header as string) || '',
+    intro: (r.intro as string) || '',
+    tiers,
+    rows: normalizePlanRows(r.rows, tiers.length),
+    note: (r.note as string) || '',
+    isVisible: (r.is_visible as boolean) ?? true,
+  };
+};
+
+export const getRelocationPlans = async (includeHidden = false): Promise<RelocationPlan[]> => {
+  let query = supabase.from('relocation_plans').select('*').order('sort_order', { ascending: true });
+  if (!includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
+  // 與 getAboutSections 同理：表還沒建對訪客不是錯誤，交給呼叫端決定怎麼記錄
+  if (error) throw error;
+  return (data || []).map(mapPlanRow);
+};
+
+export const createRelocationPlan = async (data: RelocationPlanData): Promise<string> => {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('relocation_plans').insert({
+    id,
+    sort_order: data.sortOrder,
+    title: data.title || null,
+    amount_header: data.amountHeader || null,
+    intro: data.intro || null,
+    tiers: data.tiers,
+    rows: data.rows,
+    note: data.note || null,
+    is_visible: data.isVisible,
+  });
+  if (error) { console.error('Error creating relocation plan:', error); throw error; }
+  return id;
+};
+
+export const updateRelocationPlan = async (id: string, patch: Partial<RelocationPlanData>): Promise<void> => {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if ('sortOrder' in patch)    row.sort_order    = patch.sortOrder;
+  if ('title' in patch)        row.title         = patch.title || null;
+  if ('amountHeader' in patch) row.amount_header = patch.amountHeader || null;
+  if ('intro' in patch)        row.intro         = patch.intro || null;
+  if ('tiers' in patch)        row.tiers         = patch.tiers;
+  if ('rows' in patch)         row.rows          = patch.rows;
+  if ('note' in patch)         row.note          = patch.note || null;
+  if ('isVisible' in patch)    row.is_visible    = patch.isVisible;
+  const { error } = await supabase.from('relocation_plans').update(row).eq('id', id);
+  if (error) { console.error('Error updating relocation plan:', error); throw error; }
+};
+
+export const deleteRelocationPlan = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('relocation_plans').delete().eq('id', id);
+  if (error) { console.error('Error deleting relocation plan:', error); throw error; }
+};
+
+// ─── 首頁「遷址捐款」摘要 ────────────────────────────────────────────────────
+// 沿用 site_settings，不另外開表：這只是兩個字串，為它建一張表沒有意義。
+// 留空時前台會退回 /relocation 的第一個段落，所以不必強迫填。
+
+const RELOCATION_HOME_KEYS = {
+  heading: 'relocation_home_heading',
+  body: 'relocation_home_body',
+};
+
+export const getRelocationHome = async (): Promise<RelocationHome> => {
+  try {
+    const { data, error } = await supabase.from('site_settings')
+      .select('key,value').in('key', Object.values(RELOCATION_HOME_KEYS));
+    if (error) throw error;
+    const map = new Map((data || []).map(r => [r.key as string, ((r.value ?? '') as string)]));
+    return {
+      heading: (map.get(RELOCATION_HOME_KEYS.heading) || '').trim(),
+      body: (map.get(RELOCATION_HOME_KEYS.body) || '').trim(),
+    };
+  } catch (e) {
+    console.warn('讀取首頁遷址摘要失敗:', e);
+    return { heading: '', body: '' };
+  }
+};
+
+export const saveRelocationHome = async (v: RelocationHome): Promise<void> => {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('site_settings').upsert([
+    { key: RELOCATION_HOME_KEYS.heading, value: v.heading, updated_at: now },
+    { key: RELOCATION_HOME_KEYS.body, value: v.body, updated_at: now },
+  ], { onConflict: 'key' });
+  if (error) { console.error('Error saving relocation home summary:', error); throw error; }
 };

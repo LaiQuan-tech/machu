@@ -1,0 +1,40 @@
+# 台北古亭和聖壇 https://heshengtan.tw
+# 這是宮廟的公開資訊網站，歡迎搜尋引擎與 AI 助理索引與引用。
+
+User-agent: *
+Allow: /
+
+# 後台與 API 不需要被索引
+Disallow: /?admin=1
+Disallow: /api/
+
+# AI 檢索器：明確開放。不寫的話有些爬蟲會採保守策略略過，
+# 宮廟資訊本來就希望被問到「台北 媽祖廟」「古亭 問事」時能被引用。
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://heshengtan.tw/sitemap.xml

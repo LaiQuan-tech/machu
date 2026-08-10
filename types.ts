@@ -10,10 +10,87 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['overview', 'bulletins', 'deities', 'members', 'devotees', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
-  staff:   ['overview', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
-  finance: ['overview', 'donations', 'receivables'],
+  admin:   ['analytics', 'social', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
+  staff:   ['about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
+  finance: ['overview', 'fahui', 'donations', 'receivables'],
 };
+
+// ─── 法會報名 ──────────────────────────────────────────────
+/** 單一項目的一筆報名（欄位 key→值，依服務類型而異） */
+export type FahuiEntry = Record<string, string>;
+
+export interface FahuiRegistrationRecord {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  address: string;
+  lineId?: string;
+  /** 電子郵件（報名者自填，選填） */
+  email?: string;
+  /** 聯絡人性別（信士／信女） */
+  contactGender?: string;
+  /** 聯絡人自己的生日（國曆+農曆合併字串）與生肖 */
+  contactBirthDate?: string;
+  contactZodiac?: string;
+  /** 服務 key → 該服務的多筆報名 */
+  entries: Record<string, FahuiEntry[]>;
+  /** 中元贊普供品處理方式 */
+  zanpuOffering?: string;
+  /** 平安餐與茶飲贊助金額 */
+  mealSponsor: number;
+  /** 給工作人員的留言 */
+  notes?: string;
+  totalAmount: number;
+  status: string;
+  // ─── 後台對帳欄位（報名者看不到、僅管理員填寫）───────────────
+  /** 付款方式：現金｜轉帳｜功德主（功德主＝懺主，全項目皆有但不需付款） */
+  paymentMethod?: FahuiPaymentMethod;
+  /** 付費日期（yyyy-mm-dd） */
+  paymentDate?: string;
+  /** 帳號後五碼。報名者可在表單自填，後台亦可修改 */
+  accountLast5?: string;
+  financeCheck: boolean;
+  /** 感謝狀編號（印在感謝狀上的號碼，例如 456）。由財務人員自行填寫，沒有預設值 */
+  thanksLetter?: string;
+  accountingCheck: boolean;
+  /** 後台備註（與報名者留言 notes 分開） */
+  adminNote?: string;
+}
+
+export type FahuiPaymentMethod = '現金' | '轉帳' | '功德主';
+
+export const FAHUI_PAYMENT_METHODS: FahuiPaymentMethod[] = ['現金', '轉帳', '功德主'];
+
+/** 對帳欄位的可更新集合 */
+export interface FahuiReconcilePatch {
+  paymentMethod?: FahuiPaymentMethod | null;
+  paymentDate?: string | null;
+  accountLast5?: string | null;
+  financeCheck?: boolean;
+  thanksLetter?: string | null;
+  accountingCheck?: boolean;
+  adminNote?: string | null;
+}
+
+// ─── 志工報名 ──────────────────────────────────────────────
+export interface VolunteerRegistrationRecord {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  address: string;
+  /** 用餐習慣：葷食／素食（必選，供法會當日備餐） */
+  diet?: string;
+  birthDate?: string;
+  zodiac?: string;
+  lineId?: string;
+  /** 可護持的日期與時段：日期 → 已勾選的時段清單 */
+  availability?: Record<string, string[]>;
+  /** 其他時段的自由說明 */
+  availabilityNote?: string;
+  status: string;
+}
 
 export enum ConsultationType {
   CAREER = '事業前途',
@@ -126,6 +203,35 @@ export interface ServiceItem {
   icon: React.ReactNode;
 }
 
+// ─── 網站設定：追蹤碼 ─────────────────────────────────────
+/** 只存編號，不存整段程式碼；腳本由前端依官方標準寫法組出 */
+export interface AnalyticsSettings {
+  /** GA4 評估 ID，形如 G-XXXXXXXXXX */
+  ga4Id: string;
+  /** Meta 像素 ID，15-16 位數字 */
+  metaPixelId: string;
+  /** Google 代碼管理工具容器 ID，形如 GTM-XXXXXXX */
+  gtmId: string;
+}
+
+// ─── 網站設定：社群帳號 ───────────────────────────────────
+/** 全部存完整網址；留空代表該平台不顯示在前台 */
+export interface SocialSettings {
+  lineUrl: string;
+  facebookUrl: string;
+  facebookGroupUrl: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+}
+
+export const SOCIAL_KEYS: Array<{ field: keyof SocialSettings; dbKey: string; label: string }> = [
+  { field: 'lineUrl', dbKey: 'social_line', label: 'LINE 官方帳號' },
+  { field: 'facebookUrl', dbKey: 'social_facebook', label: '臉書粉絲專頁' },
+  { field: 'facebookGroupUrl', dbKey: 'social_facebook_group', label: '臉書社團' },
+  { field: 'instagramUrl', dbKey: 'social_instagram', label: 'IG 帳號' },
+  { field: 'tiktokUrl', dbKey: 'social_tiktok', label: '抖音帳號' },
+];
+
 // ─── Bulletin (公佈欄) ────────────────────────────────────
 export enum BulletinCategory {
   GENERAL  = '一般公告',
@@ -142,6 +248,8 @@ export interface BulletinData {
   isPinned: boolean;
   publishAt?: string | null;
   linkedService?: 'lamp' | 'blessing' | 'booking' | 'donation' | null;
+  /** 活動照片：存完整公開 URL，與 RepairProject.imageUrl 同慣例 */
+  imageUrl?: string | null;
 }
 
 export interface BulletinRecord extends BulletinData {
@@ -162,6 +270,84 @@ export interface RegistrationData {
 export interface RegistrationRecord extends RegistrationData {
   id: string;
   createdAt: string;
+}
+
+// ─── 關於我們（後台可編輯的圖文段落）────────────────────
+/**
+ * 一列 = 一個圖文段落。前台依 sortOrder 由小到大排，照片左右交錯。
+ * body 空一行＝新的一段，並支援 **粗體** 與 [文字](網址) 兩種標記。
+ */
+/** 段落所屬的頁面。兩頁結構相同，共用 about_sections 表，用這個欄位分流 */
+export type SectionPage = 'about' | 'relocation';
+
+export interface AboutSection {
+  id: string;
+  page: SectionPage;
+  sortOrder: number;
+  heading: string;
+  body: string;
+  /** storage 路徑，不是完整網址；要顯示時用 getSiteImagePublicUrl 轉 */
+  imagePath: string | null;
+  caption: string;
+  isVisible: boolean;
+}
+
+/** 新增／更新用（id 由呼叫端決定，沿用 anon 不可讀回的慣例） */
+export type AboutSectionData = Omit<AboutSection, 'id'>;
+
+// ─── 常見問題 ──────────────────────────────────────────────
+/**
+ * 首頁「常見問題」的一題。內容在資料庫 `faq_items`，後台可增刪改。
+ * `content/faq.json` 保留為保底：資料表還沒建、或讀取失敗時前台仍有內容。
+ */
+export interface FaqItem {
+  id: string;
+  sortOrder: number;
+  question: string;
+  answer: string;
+  isVisible: boolean;
+}
+
+export type FaqItemData = Omit<FaqItem, 'id'>;
+
+/** 遷址捐款的方案表格：金額當欄、回饋項目當列的矩陣 */
+export interface RelocationPlanRow {
+  label: string;
+  /** 每一格的內容，長度對應 tiers；渲染時會自動補齊，少填不會壞版 */
+  cells: string[];
+}
+
+export interface RelocationPlan {
+  id: string;
+  sortOrder: number;
+  /** 表格標題，例如「每月同行｜月供養」 */
+  title: string;
+  /** 表格左上角那一格，例如「每月供養」 */
+  amountHeader: string;
+  /** 表格上方的說明文字 */
+  intro: string;
+  /** 欄標題（金額） */
+  tiers: string[];
+  rows: RelocationPlanRow[];
+  /** 表格下方的補充說明 */
+  note: string;
+  isVisible: boolean;
+}
+
+export type RelocationPlanData = Omit<RelocationPlan, 'id'>;
+
+/** 首頁「遷址捐款」摘要：與 /relocation 的段落分開，可獨立寫得更精簡 */
+export interface RelocationHome {
+  heading: string;
+  body: string;
+}
+
+/** 首頁那兩張數字卡 */
+export interface AboutFacts {
+  fact1Value: string;
+  fact1Label: string;
+  fact2Value: string;
+  fact2Label: string;
 }
 
 // ─── Site Images (照片管理) ───────────────────────────────

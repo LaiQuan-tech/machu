@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 常見問題的折疊項目 ────────────────────────────────────────────────
+   用原生 <details>／<summary>，不自己寫展開狀態。理由有三個：
+   鍵盤與螢幕閱讀器原生支援、關閉 JS 也能展開、
+   而且**答案永遠留在 DOM 裡**——Google 的 FAQPage 規則要求標記的內容
+   使用者要能看到，折疊（可點開）算數，但整段抽掉就不算了。 */
+.faq-item > summary {
+  list-style: none;                      /* 拿掉預設三角形，箭頭自己畫 */
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  padding: 1.15rem 0;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #3D2800;
+  transition: color .2s ease;
+}
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item > summary:hover { color: #7C5C1E; }
+.faq-item > summary:focus-visible { outline: 2px solid #C49820; outline-offset: 4px; }
+
+/* 箭頭用兩條邊框轉 45 度畫成，不進圖檔、不用 icon 元件 */
+.faq-chevron {
+  width: .5rem; height: .5rem;
+  margin-left: 1rem; margin-top: .5rem;
+  flex-shrink: 0;
+  border-right: 2px solid #C49820;
+  border-bottom: 2px solid #C49820;
+  transform: rotate(45deg);
+  transition: transform .25s ease;
+}
+.faq-item[open] .faq-chevron { transform: rotate(-135deg); }
+
+.faq-answer {
+  display: flex;
+  padding: 0 0 1.25rem;
+  color: #4B5563;
+  line-height: 1.9;
+}
