@@ -18,6 +18,8 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 - 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
 - 全部資料表已啟用 RLS（migration：`supabase/migrations/mainsite_rls.sql`）。訪客只能 INSERT 報名、讀公開內容；統計數字走 SECURITY DEFINER RPC。
 
+- **`vercel env rm` 只影響「之後」的部署**：移除環境變數不會改變線上那份函式，它仍帶著舊值。
+  要真正生效必須再部署一次。（拆彈時誤以為移除即生效，結果按鈕又被按了兩次、正式站又被蓋掉。）
 - **Deploy Hook 與 `/api/republish`**：後台「重新發布」按鈕會打 `api/republish.ts`，那支再去打 Vercel 的 Deploy Hook。**Hook 網址存在 Vercel 的 `VERCEL_DEPLOY_HOOK_URL`（Production，加密），刻意不加 `VITE_` 前綴**——加了會被 Vite 內嵌進前端 JS，等於把「觸發正式站部署」的權限公開給所有人。授權是把登入者的 Supabase token 丟去讀 `admin_profiles`，該表 RLS 只讓人讀自己那一列，非管理員必然拿到空陣列 → 403。實測：沒帶 token 401、假 token 401、GET 405、前端 bundle 與 git 都找不到那串網址。
 
 ## 常用指令（nvm 環境，直接跑 npm/vercel 會 command not found）
@@ -33,6 +35,12 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 
 ## 部署紀律（每次必做）
 
+0. **一律先 commit＋push，讓 git 成為部署來源**，不要只用 `vercel --prod` 上傳本機檔案。
+   為什麼寫成第 0 條：2026-08-11 之前半年都只用 `vercel --prod` 部署，git 停在幾個月前的
+   commit，本機與線上落差 84 個檔案。後台的「重新發布」按鈕走 Deploy Hook 從 **git** 重建，
+   一按就把正式站換成幾個月前的版本，連續發生兩次。只要 repo 落後，任何 git 觸發的部署
+   （Deploy Hook、GitHub 自動部署、別台機器 clone）都是一顆未爆彈。
+   趕時間可以先 `vercel --prod` 讓改動上線，但**當天要補 commit＋push**，不要讓落差過夜。
 1. `npx tsc --noEmit` 通過 → `npm run build` 通過 → 部署。
 2. 部署後三驗：`curl -s https://heshengtan.tw/ | grep -o '/assets/index-[^"]*\.js'` 確認 bundle 更新；本機 preview 跑關鍵流程 DOM 斷言；preview_console_logs 零新錯誤。
    誤判防呆：若「頁面載入正常但資料全部抓不到（console 大量 fetch 失敗／對 supabase.co 的請求 521）」＝Supabase 專案暫停，**不是部署失敗**——先去 Dashboard Restore，不要回滾部署。
