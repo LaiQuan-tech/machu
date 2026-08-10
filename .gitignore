@@ -25,3 +25,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 改動前的手動備份（制度要求「改壞之前先 cp 原檔 原檔.bak-日期」，見 CLAUDE.md）。
+# 那是本機的救命繩，不是版本歷史——版本歷史由 git 負責，備份檔進了 repo 只會變雜訊。
+*.bak-*
+*.bak
+
+# supabase CLI 的本機暫存：記錄這台機器連到哪個專案，換機器就不一樣，不該進版控
+supabase/.temp/
