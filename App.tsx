@@ -1992,9 +1992,10 @@ const App: React.FC = () => {
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
               <span className="w-12 h-px bg-temple-gold/60" />
             </div>
+            {/* 時段不再寫死在這裡：可預約的場次由後台「問事管理」設定，
+                下方的場次選擇器直接列出來，寫在文案裡只會兩邊不同步。 */}
             <p className="text-red-100 max-w-2xl mx-auto">
-              請填寫下方資料，我們將儘速為您安排問事時間。<br />
-              <span className="text-temple-gold font-bold">※ 目前僅開放每週六晚上 (19:00 - 21:00) 時段預約。</span>
+              請填寫下方資料，我們將儘速為您安排問事時間。
             </p>
           </div>
 
