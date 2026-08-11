@@ -1014,6 +1014,15 @@ function ServiceSection({ config, entries, contact, onQuantityChange, onFieldCha
 
               // 生肖（填生日自動帶入，可手動調整；同聯絡人生日時鎖定顯示）
               if (field.kind === 'zodiac') {
+                // 有生日就由生日推算，不讓人手選。
+                //
+                // 舊版是「自動帶入之後仍可改」的下拉，結果出現過生日與生肖對不起來的資料
+                // （民國112年11月5日是兔年，卻被選成蛇）。生肖是生日的函數，不是獨立的意見，
+                // 開放編輯只會製造矛盾——而且矛盾一旦寫進疏文就是錯的。
+                // 沒有生日的項目（嬰靈、冤親債主常常不知道生辰）才保留下拉讓人填。
+                const bdField = config.fields.find(f => f.kind === 'birthdate');
+                const bdValue = bdField ? (entry[bdField.key] ?? { value: '', sameAs: false }) : null;
+                const fromBirth = !!bdValue && (bdValue.sameAs ? !!contact.birthDate : !!bdValue.value);
                 return (
                   <div key={field.key}>
                     <label className="text-xs text-gray-500 block mb-1.5">{field.label}</label>
@@ -1021,13 +1030,18 @@ function ServiceSection({ config, entries, contact, onQuantityChange, onFieldCha
                       <div className="rounded-lg border border-[#C49820]/40 bg-[#C49820]/10 px-3 py-2.5 text-sm text-[#2E2A22]">
                         {contact.zodiac || '（依聯絡人生日）'}
                       </div>
+                    ) : fromBirth ? (
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-[#2E2A22] flex items-center justify-between">
+                        <span>{fv.value || '—'}</span>
+                        <span className="text-[11px] text-gray-400">依生日自動換算</span>
+                      </div>
                     ) : (
                       <select
                         className={inputCls}
                         value={fv.value}
                         onChange={e => onFieldChange(idx, field.key, { value: e.target.value })}
                       >
-                        <option value="">請選擇（填生日自動帶入）</option>
+                        <option value="">請選擇（填生日就會自動帶入）</option>
                         {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
                       </select>
                     )}

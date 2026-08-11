@@ -425,14 +425,23 @@ const ContactFormModal = ({
           {/* 生肖（自動帶入，可手動修改） */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
-            <select
+            {form.zodiac && form.birthDate ? (
+              // 生日已經填了就由生日推算，不讓人手選——生肖是生日的函數，不是獨立的意見。
+              // 開放編輯只會製造「生日與生肖對不起來」的資料（法會報名出現過一筆）。
+              <div className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 flex items-center justify-between">
+                <span>{form.zodiac}</span>
+                <span className="text-xs text-gray-400">依生日自動換算</span>
+              </div>
+            ) : (
+              <select
               value={form.zodiac || ''}
               onChange={e => set('zodiac', e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-            >
+              >
               <option value="">不指定</option>
               {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
-            </select>
+              </select>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -687,14 +696,23 @@ const ProfileFormInline = ({
       {/* 生肖 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
-        <select
-          value={form.zodiac || ''}
-          onChange={e => set('zodiac', e.target.value)}
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-        >
-          <option value="">不指定</option>
-          {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
-        </select>
+        {form.zodiac && form.birthDate ? (
+          // 生日已經填了就由生日推算，不讓人手選——生肖是生日的函數，不是獨立的意見。
+          // 開放編輯只會製造「生日與生肖對不起來」的資料（法會報名出現過一筆）。
+          <div className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 flex items-center justify-between">
+            <span>{form.zodiac}</span>
+            <span className="text-xs text-gray-400">依生日自動換算</span>
+          </div>
+        ) : (
+          <select
+            value={form.zodiac || ''}
+            onChange={e => set('zodiac', e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+          >
+            <option value="">不指定</option>
+            {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
+          </select>
+        )}
       </div>
 
       <button
