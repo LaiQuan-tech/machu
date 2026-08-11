@@ -439,6 +439,21 @@ const App: React.FC = () => {
     if (isVolunteerUrl()) window.history.pushState({}, '', '/');
   };
 
+  /**
+   * 從法會報名表回到官網首頁。
+   *
+   * 報名表沒有自己的網址（`showFahui` 是 state 不是路由），所以除了關掉它，
+   * 還要用 goToPage 把網址推回 `/`——否則在 `/blessing` 點橫幅進來的人按下返回後，
+   * 網址還停在 `/blessing`，重新整理又會回到那一頁。
+   *
+   * 按瀏覽器上一頁會回到報名表（popstate 會重新跑 `shouldShowFahui()`），
+   * 這是刻意的：上一頁本來就該回到剛才看的東西。
+   */
+  const closeFahui = () => {
+    setShowFahui(false);
+    goToPage('home');
+  };
+
   useEffect(() => {
     const onPop = () => {
       const vol = isVolunteerUrl();
@@ -1190,7 +1205,7 @@ const App: React.FC = () => {
     return (<>
       <Analytics path={analyticsPath} />
       <Suspense fallback={<PageLoading />}>
-        <FahuiRegistration onVolunteer={(contact) => openVolunteer(contact)} />
+        <FahuiRegistration onBack={closeFahui} onVolunteer={(contact) => openVolunteer(contact)} />
       </Suspense>
     </>);
   }

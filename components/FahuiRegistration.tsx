@@ -230,8 +230,9 @@ function ClosedScreen({ onBack, onVolunteer }: { onBack?: () => void; onVoluntee
       <header className="sticky top-0 z-20 bg-[#F5F0E8]/95 backdrop-blur border-b border-[#C49820]/20">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           {onBack && (
-            <button onClick={onBack} className="text-[#7C5C1E] shrink-0" aria-label="返回">
+            <button onClick={onBack} className="flex items-center gap-1 text-[#7C5C1E] shrink-0">
               <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm">首頁</span>
             </button>
           )}
           <div>
@@ -476,9 +477,10 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 rounded-full hover:bg-[#C49820]/10 text-[#2E2A22] transition-colors shrink-0"
+              className="flex items-center gap-1 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-[#C49820]/10 text-[#2E2A22] transition-colors shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm">首頁</span>
             </button>
           )}
           <img src="/logo.png" alt="和聖壇" className="w-9 h-9 object-contain shrink-0" />
