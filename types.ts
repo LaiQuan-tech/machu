@@ -310,6 +310,23 @@ export interface FaqItem {
 
 export type FaqItemData = Omit<FaqItem, 'id'>;
 
+// ─── 捐款類別 ──────────────────────────────────────────────
+/**
+ * 隨喜捐獻表單的一個選項。內容在資料庫 `donation_types`，後台可增刪改。
+ *
+ * **`name` 同時是寫進 `donations.type` 的值**（歷史紀錄存的是文字不是 id），
+ * 所以改名不會回頭改到已收的捐款——那是財務資料，要不要一併更新由廟方決定。
+ * 上面的 `DonationType` 列舉降為保底：資料表沒建或讀取失敗時前台仍有選項可用。
+ */
+export interface DonationTypeRecord {
+  id: string;
+  sortOrder: number;
+  name: string;
+  isVisible: boolean;
+}
+
+export type DonationTypeData = Omit<DonationTypeRecord, 'id'>;
+
 /** 遷址捐款的方案表格：金額當欄、回饋項目當列的矩陣 */
 export interface RelocationPlanRow {
   label: string;

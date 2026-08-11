@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -1957,6 +1957,64 @@ export const requestRepublish = async (): Promise<void> => {
     const body = await res.json().catch(() => ({} as { error?: string }));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
+};
+
+// ─── 捐款類別（donation_types）────────────────────────────────────────────
+
+const mapDonationTypeRow = (r: Record<string, unknown>): DonationTypeRecord => ({
+  id: String(r.id),
+  sortOrder: Number(r.sort_order ?? 0),
+  name: String(r.name ?? ''),
+  isVisible: r.is_visible !== false,
+});
+
+export const getDonationTypes = async (includeHidden = false): Promise<DonationTypeRecord[]> => {
+  let query = supabase.from('donation_types').select('*').order('sort_order', { ascending: true });
+  if (!includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
+  // 不寫 console.error：表還沒建對訪客不是錯誤，前台會退回 DonationType 列舉
+  if (error) throw error;
+  return (data || []).map(mapDonationTypeRow);
+};
+
+export const createDonationType = async (data: DonationTypeData): Promise<string> => {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('donation_types').insert({
+    id, sort_order: data.sortOrder, name: data.name, is_visible: data.isVisible,
+  });
+  if (error) { console.error('Error creating donation type:', error); throw error; }
+  return id;
+};
+
+export const updateDonationType = async (id: string, patch: Partial<DonationTypeData>): Promise<void> => {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if ('sortOrder' in patch) row.sort_order = patch.sortOrder;
+  if ('name' in patch)      row.name       = patch.name;
+  if ('isVisible' in patch) row.is_visible = patch.isVisible;
+  const { error } = await supabase.from('donation_types').update(row).eq('id', id);
+  if (error) { console.error('Error updating donation type:', error); throw error; }
+};
+
+export const deleteDonationType = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('donation_types').delete().eq('id', id);
+  if (error) { console.error('Error deleting donation type:', error); throw error; }
+};
+
+export const reorderDonationTypes = async (idsInOrder: string[]): Promise<void> => {
+  await Promise.all(idsInOrder.map((id, i) =>
+    supabase.from('donation_types').update({ sort_order: i }).eq('id', id)
+  ));
+};
+
+/**
+ * 把既有捐款紀錄裡的類別文字一起改掉。
+ *
+ * **只有廟方在後台明確勾選時才呼叫。** 預設不動歷史——`donations.type` 是財務資料，
+ * 「改個顯示名稱」不該悄悄重寫過去的帳。打錯字時才需要一併更新。
+ */
+export const renameDonationsType = async (oldName: string, newName: string): Promise<void> => {
+  const { error } = await supabase.from('donations').update({ type: newName }).eq('type', oldName);
+  if (error) { console.error('Error renaming donations type:', error); throw error; }
 };
 
 // ─── 常見問題（faq_items）────────────────────────────────────────────────

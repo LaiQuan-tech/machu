@@ -5,6 +5,7 @@ import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonati
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
+import AdminDonationTypesTab from './AdminDonationTypesTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
@@ -2047,7 +2048,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
 
 // ─── Donations Tab ────────────────────────────────────────────────────────────
 
-const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[] }) => {
+const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[]; onRefresh: () => void }) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
@@ -2093,6 +2094,9 @@ const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord
           <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
+
+      {/* 捐款類別設定：預設收合，不擋住每天要看的捐款列表 */}
+      <AdminDonationTypesTab donations={donations} onRefresh={onRefresh} />
 
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
@@ -5692,7 +5696,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'fahui'     && <FahuiTab registrations={fahuiRegistrations} onRefresh={fetchAll} />}
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
-              {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
+              {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} onRefresh={fetchAll} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
               {tab === 'roster'    && <RosterTab sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, registrations: allRegistrations }} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}

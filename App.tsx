@@ -41,7 +41,7 @@ const LineIcon = ({ className }: { className?: string }) => (
 );
 
 import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -497,6 +497,14 @@ const App: React.FC = () => {
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
   /** 常見問題。先用保底內容渲染，資料庫回來再換掉——避免首屏空一塊 */
   const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>(FAQ_FALLBACK);
+  /**
+   * 捐款類別。後台可增刪改（donation_types），這裡先用 `DonationType` 列舉當保底，
+   * 資料表沒建或讀取失敗時前台仍有選項可選，不會變成空的下拉。
+   * 「神尊修復」永遠排除：那一項走神尊修復專頁、金額綁定專案。
+   */
+  const [donationTypes, setDonationTypes] = useState<string[]>(
+    Object.values(DonationType).filter(t => t !== DonationType.REPAIR)
+  );
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberPortalPendingPhone, setMemberPortalPendingPhone] = useState('');
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
@@ -629,6 +637,9 @@ const App: React.FC = () => {
     // 常見問題：讀不到就沿用保底內容，不寫 console.error（表還沒建對訪客不是錯誤）
     getFaqItems()
       .then(rows => { if (rows.length) setFaqItems(rows.map(r => ({ q: r.question, a: r.answer }))); })
+      .catch(() => {});
+    getDonationTypes()
+      .then(rows => { if (rows.length) setDonationTypes(rows.map(r => r.name)); })
       .catch(() => {});
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
@@ -778,6 +789,24 @@ const App: React.FC = () => {
     // 神尊修復只有一個姓名欄位，沒有卡片結構
     setRepairName(prev => prev || (prof.name ?? ''));
   }, [memberProfile]);
+
+  /**
+   * 捐款類別載入後，把卡片上「已經不存在的類別」校正成第一項。
+   * 會發生的情境：預設值來自 `DonationType` 列舉，而廟方在後台把那個類別改名了——
+   * 不校正的話送出的會是一個下拉裡根本沒有的字串。
+   */
+  useEffect(() => {
+    if (donationTypes.length === 0) return;
+    setDonationPersons(prev => {
+      let changed = false;
+      const next = prev.map(p => {
+        if (donationTypes.includes(p.type)) return p;
+        changed = true;
+        return { ...p, type: donationTypes[0] as DonationType };
+      });
+      return changed ? next : prev;
+    });
+  }, [donationTypes]);
 
   /**
    * 常見問題的 FAQPage 結構化資料，在**執行期**依當下的內容重新產生。
@@ -3157,7 +3186,7 @@ const App: React.FC = () => {
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
                         >
-                          {Object.values(DonationType).filter(t => t !== DonationType.REPAIR).map(t => <option key={t} value={t}>{t}</option>)}
+                          {donationTypes.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                         <select
                           value={p.gender || ''}
