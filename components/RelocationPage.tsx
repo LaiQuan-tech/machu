@@ -203,13 +203,18 @@ const RemittanceCard: React.FC = () => {
                 <span className="font-mono text-xl sm:text-2xl font-bold text-temple-red tracking-wider">
                   {REMITTANCE.account}
                 </span>
+                {/*
+                  手機上排不下（內容區 195px，數字＋按鈕要 246px），與其把字縮到
+                  難讀，不如讓按鈕整條攤開——手指本來就比較好按 44px 高的橫條，
+                  勝過 64px 寬的小藥丸。桌機空間夠，維持行內的小按鈕。
+                */}
                 <button
                   type="button"
                   onClick={copy}
-                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-temple-gold text-temple-dark hover:bg-temple-gold/20 transition-colors"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-sm sm:text-xs px-3 py-2 sm:py-1 rounded-lg sm:rounded-full border border-temple-gold text-temple-dark hover:bg-temple-gold/20 transition-colors"
                 >
-                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? '已複製' : '複製'}
+                  {copied ? <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
+                  {copied ? '已複製' : '複製帳號'}
                 </button>
               </dd>
             </div>
