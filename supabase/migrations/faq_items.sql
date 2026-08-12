@@ -39,7 +39,7 @@ CREATE POLICY "admin_all_faq_items" ON public.faq_items
 INSERT INTO public.faq_items (sort_order, question, answer, is_visible)
 SELECT * FROM (VALUES
   (0, '和聖壇在哪裡？怎麼過去？', '和聖壇位於台北市中正區晉江街 72 巷 9 號。搭乘捷運至古亭站 2 號出口，步行約 5 分鐘即可抵達。', TRUE),
-  (1, '開放時間是幾點到幾點？', '每日 06:00 至 22:30 開放。', TRUE),
+  (1, '開放時間是幾點到幾點？', '每日 06:00 至 23:00 開放。', TRUE),
   (2, '和聖壇主祀哪一尊神明？', '主祀天上聖母（媽祖）。本壇創立於民國 73 年，前身為聖鳳壇。', TRUE),
   (3, '問事需要先預約嗎？', '請盡可能透過官方網站或官方 LINE 帳號預約，方便廟方為您安排時間；也接受現場報名。', TRUE),
   (4, '問事怎麼收費？', '問事每份金紙 100 元，其餘部分隨喜。', TRUE),

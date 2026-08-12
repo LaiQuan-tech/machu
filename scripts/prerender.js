@@ -184,7 +184,7 @@ for (const r of ROUTES) {
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
 ${r.body.map((p) => `        <p>${esc(p)}</p>`).join('\n')}
-        <p style="margin-top:1.5rem">台北古亭和聖壇｜100 臺北市中正區晉江街 72 巷 9 號｜電話 <a href="tel:0953945349" style="color:#7C5C1E">0953-945-349</a>｜每日 06:00 – 22:30</p>
+        <p style="margin-top:1.5rem">台北古亭和聖壇｜100 臺北市中正區晉江街 72 巷 9 號｜電話 <a href="tel:0953945349" style="color:#7C5C1E">0953-945-349</a>｜每日 06:00 – 23:00</p>
         <p><a href="/" style="color:#7C5C1E">回首頁</a></p>
         <p style="color:#7C5C1E">本頁的線上登記功能需要啟用 JavaScript。</p>
       </div>
