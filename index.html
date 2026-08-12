@@ -13,6 +13,9 @@
     <!-- 網站圖示。全部由 public/logo.png 產生（scripts/build-icons.js），換 logo 時重跑那支就好。
          都鋪了網站底色 #F5F0E8：原始 logo 是紅線稿＋透明背景，深色分頁上會糊在深色裡。 -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <!-- 96×96 是給 Google 搜尋結果用的：Google 只採用「48 的倍數」的正方形圖示，
+         宣告 32x32 會被它略過，搜尋結果就顯示預設的地球圖示（實際踩過）。 -->
+    <link rel="icon" type="image/png" href="/icon-96.png" sizes="96x96" />
     <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="canonical" href="https://heshengtan.tw/" />

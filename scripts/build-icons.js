@@ -101,6 +101,15 @@ const png32 = await render(img, 32, { round: true });
 writeFileSync(resolve(PUBLIC, 'favicon-32.png'), png32);
 console.log('icons  favicon-32.png     32×32');
 
+/**
+ * 給 Google 搜尋結果用的圖示。
+ * Google 明文要求：favicon 必須是**48 的倍數**的正方形（48／96／144…），
+ * 不是倍數的尺寸它直接不採用，搜尋結果就會顯示預設的地球圖示。
+ * 96 = 48×2，在多數螢幕上也夠銳利。畫成圓形，與分頁圖示一致。
+ */
+writeFileSync(resolve(PUBLIC, 'icon-96.png'), await render(img, 96, { round: true }));
+console.log('icons  icon-96.png        96×96（Google 搜尋結果用，48 的倍數）');
+
 // iOS 加到主畫面：方形，系統自己套圓角，所以這裡不要先畫圓
 for (const [name, size] of [['apple-touch-icon.png', 180], ['icon-192.png', 192], ['icon-512.png', 512]]) {
   writeFileSync(resolve(PUBLIC, name), await render(img, size));
