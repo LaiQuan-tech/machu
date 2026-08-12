@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import StoryPage, { StoryBlock, splitParagraphs, renderInline } from './StoryPage';
 import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl } from '../services/supabase';
 import { AboutSection, RelocationPlan } from '../types';
@@ -141,6 +142,99 @@ const PlanTable: React.FC<{ plan: RelocationPlan }> = ({ plan }) => {
   );
 };
 
+/**
+ * 遷址募資的專屬匯款帳號（行動呼籲）
+ *
+ * 這是整頁的收尾：前面講完為什麼要遷址、有哪些方案，這裡是「怎麼捐」。
+ * 原本看完沒有下一步，只能自己想辦法問——轉換就斷在這裡。
+ *
+ * **與網站其他地方的匯款資訊不同**：那是中國信託的一般帳戶，這是遷址專款專用的
+ * 第一銀行帳號，兩者不可混用，改動前先跟廟方確認是哪一個。
+ *
+ * 帳號給一顆複製鈕：手機上要一邊看畫面一邊在銀行 App 輸入 12 位數字，
+ * 抄錯一碼錢就進不來。桌機瀏覽器不支援 clipboard API 時退回什麼都不做，
+ * 數字本身仍然選得起來。
+ */
+const REMITTANCE = {
+  bank: '第一銀行',
+  bankCode: '007',
+  branch: '古亭分行',
+  account: '171-68-143732',
+  holder: '王順文',
+};
+
+const RemittanceCard: React.FC = () => {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(REMITTANCE.account.replace(/-/g, ''));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch { /* 不支援就算了，數字還是看得到、選得起來 */ }
+  };
+
+  return (
+    <section className="mt-16 sr sr-up">
+      <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 overflow-hidden">
+        <div className="bg-temple-gold px-6 py-4 text-center">
+          <h3 className="font-serif text-xl sm:text-2xl font-bold text-white">
+            遷址募資專屬匯款帳號
+          </h3>
+        </div>
+
+        <div className="px-6 py-7 sm:px-10">
+          <dl className="max-w-md mx-auto space-y-4">
+            <div className="flex items-baseline gap-4">
+              <dt className="w-20 shrink-0 text-sm text-gray-500">銀行</dt>
+              <dd className="font-serif text-lg font-bold text-temple-dark">
+                {REMITTANCE.bank}
+                <span className="ml-2 text-sm font-normal text-gray-500">代碼 {REMITTANCE.bankCode}</span>
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-4">
+              <dt className="w-20 shrink-0 text-sm text-gray-500">分行</dt>
+              <dd className="font-serif text-lg font-bold text-temple-dark">{REMITTANCE.branch}</dd>
+            </div>
+            <div className="flex items-baseline gap-4">
+              <dt className="w-20 shrink-0 text-sm text-gray-500">帳號</dt>
+              <dd className="flex items-center gap-3 flex-wrap">
+                {/* 數字用等寬字：對帳時一位一位比對才不會看錯 */}
+                <span className="font-mono text-xl sm:text-2xl font-bold text-temple-red tracking-wider">
+                  {REMITTANCE.account}
+                </span>
+                <button
+                  type="button"
+                  onClick={copy}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-temple-gold text-temple-dark hover:bg-temple-gold/20 transition-colors"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? '已複製' : '複製'}
+                </button>
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-4">
+              <dt className="w-20 shrink-0 text-sm text-gray-500">戶名</dt>
+              <dd className="font-serif text-lg font-bold text-temple-dark">{REMITTANCE.holder}</dd>
+            </div>
+          </dl>
+
+          <div className="flex items-center justify-center gap-3 mt-7">
+            <span className="w-12 h-px bg-temple-gold/70" />
+            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+            <span className="w-12 h-px bg-temple-gold/70" />
+          </div>
+
+          <p className="text-center text-sm text-gray-600 leading-loose mt-5">
+            匯款後請透過官方 LINE 或電話告知<strong>姓名、金額與帳號後五碼</strong>，
+            以便廟方核對並登錄功德芳名。
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [blocks, setBlocks] = useState<StoryBlock[]>([]);
   const [plans, setPlans] = useState<RelocationPlan[]>([]);
@@ -159,6 +253,7 @@ const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack}>
       {plans.map(p => <PlanTable key={p.id} plan={p} />)}
+      <RemittanceCard />
     </StoryPage>
   );
 };
