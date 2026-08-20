@@ -21,6 +21,10 @@
       "destination": "/relocation.html"
     },
     {
+      "source": "/deities",
+      "destination": "/deities.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

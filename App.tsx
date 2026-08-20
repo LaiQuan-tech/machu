@@ -108,7 +108,7 @@ const ENABLE_GROUP_BOOKING = false; // 揪團功能暫時停用，需要時設�
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
@@ -119,6 +119,10 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   // 導覽列的「關於我們」仍然捲到首頁區塊，不換頁
   about: '/about',
   relocation: '/relocation',
+  // 祀奉神尊的完整版。首頁區塊只放前幾尊，按「看全部神尊」換到這一頁——
+  // 舊版是在首頁一次展開四尊、再四尊，尊數一多整個首頁被神尊灌爆，
+  // 而且捲很久也回不到別的區塊。導覽列的「祀奉神尊」仍然捲到首頁區塊，不換頁。
+  deitiesAll: '/deities',
 };
 
 /**
@@ -189,6 +193,41 @@ const NAV_PRIMARY: NavItem[] = [
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
+/**
+ * 神尊卡片。首頁區塊與 /deities 完整頁共用同一份，改樣式只要改這裡。
+ *
+ * 只做進場（逐張錯開），**不要加視差**。曾經給單數欄 30px 的視差做高低錯落，
+ * 結果捲動時四張卡上緣會差到 18px，廟方看到的是「牌卡沒有排整齊」——
+ * 整齊的網格比錯落的動態重要。
+ * 卡片高度靠 grid 的 stretch ＋ 內層 h-full 撐成等高，不要拿掉 h-full。
+ */
+const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, index }) => (
+  <div className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][index % 4]}`}>
+    <div className="h-full bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
+      {/* 直式 3:4：神尊立像是直的，原本固定高 192px 的橫幅會把頭冠與衣袍下擺切掉。
+          與神尊修復卡片、後台縮圖同一個比例，後台看到的裁切結果就是這裡的樣子。 */}
+      <div className="aspect-[3/4] bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
+        {deity.imagePath ? (
+          <img src={getSiteImagePublicUrl(deity.imagePath)} alt={deity.name} loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+        ) : (
+          <div className="text-center">
+            <Flame className="w-16 h-16 text-temple-gold/60 mx-auto mb-2" />
+          </div>
+        )}
+      </div>
+      {/* 名號置中、介紹靠左：介紹是多行敘述，置中的多行文字每行起點都不同，讀起來很吃力 */}
+      <div className="p-6">
+        <h4 className="text-xl font-bold text-temple-dark font-serif mb-1 text-center">{deity.name}</h4>
+        {deity.title && <p className="text-temple-red text-sm font-medium mb-3 text-center">{deity.title}</p>}
+        {/* line-clamp-6：卡片一行約 16 字，六行約 96 字，確保 60 字的介紹一定完整顯示。
+            這是上限不是固定高度，短介紹仍然只佔它需要的行數。 */}
+        <p className="text-gray-600 text-sm leading-relaxed line-clamp-6">{deity.description}</p>
+      </div>
+    </div>
+  </div>
+);
+
 const DEITY_PAGE = 4;
 
 // 法會收件期間：根路徑以報名表取代官網首頁。主官網上線時改成 false 即可。
@@ -417,6 +456,7 @@ const App: React.FC = () => {
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       relocation: '遷址捐款｜護持和聖壇道場遷址',
       repair:     '神尊修復｜台北古亭和聖壇',
+      deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
     };
     document.title = showFahui
       ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
@@ -1847,41 +1887,23 @@ const App: React.FC = () => {
                 // 曾經給單數欄 30px 的視差做高低錯落，結果捲動時四張卡上緣會差到 18px，
                 // 廟方看到的是「牌卡沒有排整齊」——整齊的網格比錯落的動態重要。
                 // 卡片高度靠 grid 的 stretch ＋ 內層 h-full 撐成等高，不要拿掉 h-full。
-                <div key={deity.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][di % 4]}`}>
-                <div className="h-full bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
-                  {/* 直式 3:4：神尊立像是直的，原本固定高 192px 的橫幅會把頭冠與衣袍下擺切掉。
-                      與神尊修復卡片、後台縮圖同一個比例，後台看到的裁切結果就是這裡的樣子。 */}
-                  <div className="aspect-[3/4] bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
-                    {deity.imagePath ? (
-                      <img src={getSiteImagePublicUrl(deity.imagePath)} alt={deity.name} loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="text-center">
-                        <Flame className="w-16 h-16 text-temple-gold/60 mx-auto mb-2" />
-                      </div>
-                    )}
-                  </div>
-                  {/* 名號置中、介紹靠左：介紹是多行敘述，置中的多行文字每行起點都不同，讀起來很吃力 */}
-                  <div className="p-6">
-                    <h4 className="text-xl font-bold text-temple-dark font-serif mb-1 text-center">{deity.name}</h4>
-                    {deity.title && <p className="text-temple-red text-sm font-medium mb-3 text-center">{deity.title}</p>}
-                    {/* line-clamp-6：卡片一行約 16 字，六行約 96 字，確保 60 字的介紹一定完整顯示。
-                        這是上限不是固定高度，短介紹仍然只佔它需要的行數。 */}
-                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-6">{deity.description}</p>
-                  </div>
-                </div>
-                </div>
+                <DeityCard key={deity.id} deity={deity} index={di} />
               ))}
             </div>
+            {/*
+              「更多」改成換到 /deities 完整頁，不再一次展開四尊。
+              舊做法尊數一多就把首頁灌爆，使用者捲很久也回不到別的區塊；
+              而且展開的內容沒有自己的網址，分享不出去、Google 也看不到。
+            */}
             {remaining > 0 && (
               <div className="text-center mt-10">
                 <button
-                  onClick={() => setDeityShown(n => n + DEITY_PAGE)}
+                  onClick={() => goToPage('deitiesAll')}
                   className="inline-flex items-center gap-2 px-8 py-3 rounded-full border border-temple-gold/60 text-temple-red font-medium hover:bg-temple-gold/10 hover:border-temple-gold transition-all"
                 >
-                  更多
-                  <span className="text-sm text-gray-500">（還有 {remaining} 尊）</span>
-                  <ChevronDown className="w-4 h-4" />
+                  看全部神尊
+                  <span className="text-sm text-gray-500">（共 {filteredDeities.length} 尊）</span>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -2904,6 +2926,86 @@ const App: React.FC = () => {
       {/* ── 遷址捐款（獨立分頁 /relocation）──
           入口在導覽列的「更多」下拉 */}
       {page === 'relocation' && <RelocationPage onBack={() => goToPage('home')} />}
+
+      {/* ── 祀奉神尊（獨立分頁 /deities）──
+          首頁區塊只放前 DEITY_PAGE 尊，這裡列出全部。殿別篩選與首頁共用
+          selectedHall，所以從首頁篩了某一殿再點進來，篩選會延續。 */}
+      {page === 'deitiesAll' && (
+      <div className="pt-20">
+        <section className="py-16 sm:py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 sr sr-up">
+              <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+                <span className="w-8 h-1 bg-temple-gold" />
+                神尊介紹
+                <span className="w-8 h-1 bg-temple-gold" />
+              </h2>
+              <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark font-serif">祀奉神尊</h1>
+              <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+                <span className="w-12 h-px bg-temple-gold/70" />
+                <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+                <span className="w-12 h-px bg-temple-gold/70" />
+              </div>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                和聖壇奉祀的諸位神尊，誠邀諸善信大德一同參拜。
+              </p>
+            </div>
+
+            {deityHalls.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 mb-10">
+                <button
+                  onClick={() => setSelectedHall(null)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedHall === null
+                      ? 'bg-temple-red text-white shadow-md'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  全部
+                </button>
+                {deityHalls.map(h => (
+                  <button
+                    key={h.id}
+                    onClick={() => setSelectedHall(h.id)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      selectedHall === h.id
+                        ? 'bg-temple-red text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {h.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(() => {
+              const list = selectedHall ? deities.filter(d => d.hallId === selectedHall) : deities;
+              if (list.length === 0) {
+                return <p className="text-center text-gray-400">{deities.length === 0 ? '載入中...' : '此殿尚無神明'}</p>;
+              }
+              return (
+                <>
+                  <p className="text-center text-sm text-gray-400 mb-8">共 {list.length} 尊</p>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {list.map((deity, di) => <DeityCard key={deity.id} deity={deity} index={di} />)}
+                  </div>
+                </>
+              );
+            })()}
+
+            <div className="mt-16 text-center">
+              <button
+                onClick={() => goToPage('home')}
+                className="px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
+              >
+                返回首頁
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+      )}
 
       {/* ── 神尊修復（獨立分頁 /repair）── */}
       {page === 'repair' && (
