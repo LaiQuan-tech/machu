@@ -40,8 +40,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, supabase } from './services/supabase';
+import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -419,7 +419,7 @@ const App: React.FC = () => {
       repair:     '神尊修復｜台北古亭和聖壇',
     };
     document.title = showFahui
-      ? '和聖壇法會線上報名｜佛道兩儀慈悲普渡禮懺法會'
+      ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
       : titles[page];
   }, [showFahui, page]);
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
@@ -505,6 +505,14 @@ const App: React.FC = () => {
   const [donationTypes, setDonationTypes] = useState<string[]>(
     Object.values(DonationType).filter(t => t !== DonationType.REPAIR)
   );
+
+  /**
+   * 網站基本資料（地址／電話／開放時間）。後台「基本資料」分頁可改。
+   * 先用保底值渲染，資料庫回來再換——首屏不會出現空白的地址與電話。
+   */
+  const [siteInfo, setSiteInfo] = useState<SiteInfo>(DEFAULT_SITE_INFO);
+  /** 電話的 tel: 連結要純數字，顯示用的字串可能帶連字號 */
+  const telHref = `tel:${siteInfo.phone.replace(/[^\d+]/g, '')}`;
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberPortalPendingPhone, setMemberPortalPendingPhone] = useState('');
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
@@ -641,6 +649,7 @@ const App: React.FC = () => {
     getDonationTypes()
       .then(rows => { if (rows.length) setDonationTypes(rows.map(r => r.name)); })
       .catch(() => {});
+    getSiteInfo().then(setSiteInfo).catch(() => {});
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getDeityHalls().then(setDeityHalls).catch(console.error);
@@ -851,6 +860,50 @@ const App: React.FC = () => {
       })),
     }, null, 2);
   }, [faqItems, page, showFahui]);
+
+  /**
+   * 用後台的基本資料覆寫 index.html 裡那個 PlaceOfWorship 節點的
+   * 電話、地址與開放時間。
+   *
+   * 為什麼要在執行期做：那段 JSON-LD 是靜態寫在 HTML 裡的，廟方在後台改了時間，
+   * 它不會跟著變——Google 拿到的就會是舊資料，而且畫面上寫著新時間，兩邊打架。
+   * Google 會執行 JavaScript，所以覆寫之後它讀到的一定是最新的。
+   *
+   * 只改這三個欄位、不整包換掉：那個節點還有 hasOfferCatalog、sameAs、
+   * foundingDate 等等，整包重寫等於要在這裡維護第二份完整定義。
+   */
+  useEffect(() => {
+    const node = [...document.querySelectorAll('script[type="application/ld+json"]')]
+      .find(el => /"PlaceOfWorship"/.test(el.textContent ?? ''));
+    if (!node) return;
+    try {
+      const data = JSON.parse(node.textContent ?? '{}');
+      const graph = Array.isArray(data['@graph']) ? data['@graph'] : [data];
+      const temple = graph.find((n: Record<string, unknown>) => {
+        const t = n['@type'];
+        return Array.isArray(t) ? t.includes('PlaceOfWorship') : t === 'PlaceOfWorship';
+      });
+      if (!temple) return;
+      // 電話轉國際格式：只把開頭的 0 換成 +886-，保留原本的連字號分組。
+      // 全部去掉會變成 +886-953945349 這種不上不下的格式，人和機器都不好讀。
+      temple.telephone = siteInfo.phone.replace(/^0/, '+886-');
+      temple.address = {
+        '@type': 'PostalAddress',
+        streetAddress: siteInfo.street,
+        addressLocality: siteInfo.locality,
+        addressRegion: siteInfo.region,
+        postalCode: siteInfo.postalCode,
+        addressCountry: 'TW',
+      };
+      temple.openingHoursSpecification = {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        opens: siteInfo.hoursOpen,
+        closes: siteInfo.hoursClose,
+      };
+      node.textContent = JSON.stringify(data, null, 2);
+    } catch { /* 靜態那份壞掉的話就別再動它，至少保留原內容 */ }
+  }, [siteInfo]);
 
   // ── 問事場次 ──
   useEffect(() => {
@@ -2444,7 +2497,7 @@ const App: React.FC = () => {
             <div className="px-6 py-6 sm:flex sm:items-center sm:justify-between gap-4">
               <div className="text-white mb-4 sm:mb-0">
                 <p className="text-amber-300 text-xs tracking-widest mb-1">丙午年度・護國佑民</p>
-                <h4 className="text-2xl font-bold font-serif mb-1">佛道兩儀慈悲普渡禮懺法會</h4>
+                <h4 className="text-2xl font-bold font-serif mb-1">太上慈悲普渡禮懺法會</h4>
                 <p className="text-amber-200 text-sm">國曆 9/13（日）｜截止報名：9/06</p>
                 <p className="text-amber-300 text-xs mt-1">超渡祖先・解冤親債・贊普・地基主等 7 種項目</p>
               </div>
@@ -3320,7 +3373,7 @@ const App: React.FC = () => {
             >
               官方 LINE 帳號
             </a>
-            {' '}或電話 <a href="tel:0953945349" className="text-temple-gold hover:text-temple-red">0953-945-349</a> 詢問。
+            {' '}或電話 <a href={telHref} className="text-temple-gold hover:text-temple-red">{siteInfo.phone}</a> 詢問。
           </p>
         </div>
       </section>
@@ -3373,15 +3426,15 @@ const App: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-start space-x-3 text-gray-400">
                   <MapPin className="w-5 h-5 mt-1 text-temple-red" />
-                  <span>100臺北市中正區晉江街72巷9號</span>
+                  <span>{siteInfo.address}</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Phone className="w-5 h-5 text-temple-red" />
-                  <a href="tel:0953945349" className="hover:text-temple-gold transition-colors">0953-945-349</a>
+                  <a href={telHref} className="hover:text-temple-gold transition-colors">{siteInfo.phone}</a>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Clock className="w-5 h-5 text-temple-red" />
-                  <span>每日 06:00 - 23:00</span>
+                  <span>每日 {siteInfo.hoursOpen} - {siteInfo.hoursClose}</span>
                 </div>
               </div>
             </div>
@@ -3389,14 +3442,14 @@ const App: React.FC = () => {
             <div>
               <h4 className="text-lg font-bold font-serif text-temple-gold mb-6">交通指引</h4>
               <a
-                href="https://www.google.com/maps/search/100臺北市中正區晉江街72巷9號"
+                href={`https://www.google.com/maps/search/${encodeURIComponent(siteInfo.address)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full h-52 rounded-lg overflow-hidden border border-gray-700 hover:opacity-90 transition-opacity"
               >
                 <iframe
                   title="和聖壇地圖"
-                  src="https://maps.google.com/maps?q=100臺北市中正區晉江街72巷9號&output=embed&hl=zh-TW"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(siteInfo.address)}&output=embed&hl=zh-TW`}
                   width="100%"
                   height="100%"
                   style={{ border: 0, pointerEvents: 'none' }}
@@ -3663,8 +3716,8 @@ const App: React.FC = () => {
 
               <div className="bg-temple-bg rounded-xl p-4">
                 <h3 className="font-bold text-gray-800 mb-2">聯絡資訊</h3>
-                <p>台北古亭和聖壇　｜　100臺北市中正區晉江街72巷9號</p>
-                <p>電話：0953-945-349　｜　開放時間：每日 06:00 – 23:00</p>
+                <p>台北古亭和聖壇　｜　{siteInfo.address}</p>
+                <p>電話：{siteInfo.phone}　｜　開放時間：每日 {siteInfo.hoursOpen} – {siteInfo.hoursClose}</p>
               </div>
             </div>
             {/* Footer */}

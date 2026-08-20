@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -1957,6 +1957,47 @@ export const requestRepublish = async (): Promise<void> => {
     const body = await res.json().catch(() => ({} as { error?: string }));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
+};
+
+// ─── 網站基本資料（site_settings 的 info_ 系列）──────────────────────────
+// 沿用 site_settings，不另外開表：這只是幾個字串。
+
+const INFO_KEYS: { field: keyof SiteInfo; dbKey: string; fallback: string }[] = [
+  { field: 'address',    dbKey: 'info_address',     fallback: '100 臺北市中正區晉江街 72 巷 9 號' },
+  { field: 'street',     dbKey: 'info_street',      fallback: '晉江街72巷9號' },
+  { field: 'locality',   dbKey: 'info_locality',    fallback: '中正區' },
+  { field: 'region',     dbKey: 'info_region',      fallback: '臺北市' },
+  { field: 'postalCode', dbKey: 'info_postal_code', fallback: '100' },
+  { field: 'phone',      dbKey: 'info_phone',       fallback: '0953-945-349' },
+  { field: 'hoursOpen',  dbKey: 'info_hours_open',  fallback: '06:00' },
+  { field: 'hoursClose', dbKey: 'info_hours_close', fallback: '23:00' },
+];
+
+/** 保底值：資料表沒建或讀取失敗時用這份，前台不會出現空白的地址與電話 */
+export const DEFAULT_SITE_INFO: SiteInfo = INFO_KEYS.reduce(
+  (acc, k) => ({ ...acc, [k.field]: k.fallback }), {} as SiteInfo,
+);
+
+export const getSiteInfo = async (): Promise<SiteInfo> => {
+  try {
+    const { data, error } = await supabase.from('site_settings')
+      .select('key,value').in('key', INFO_KEYS.map(k => k.dbKey));
+    if (error) throw error;
+    const map = new Map((data || []).map(r => [r.key as string, ((r.value ?? '') as string).trim()]));
+    return INFO_KEYS.reduce((acc, k) => ({
+      ...acc, [k.field]: map.get(k.dbKey) || k.fallback,
+    }), {} as SiteInfo);
+  } catch (e) {
+    console.warn('讀取網站基本資料失敗，改用保底值:', e);
+    return DEFAULT_SITE_INFO;
+  }
+};
+
+export const saveSiteInfo = async (v: SiteInfo): Promise<void> => {
+  const now = new Date().toISOString();
+  const rows = INFO_KEYS.map(k => ({ key: k.dbKey, value: v[k.field], updated_at: now }));
+  const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
+  if (error) { console.error('Error saving site info:', error); throw error; }
 };
 
 // ─── 捐款類別（donation_types）────────────────────────────────────────────

@@ -135,6 +135,64 @@ const fetchFaq = async () => {
 
 const faq = await fetchFaq();
 
+/**
+ * 網站基本資料（地址／電話／開放時間）。與 FAQ 同理，建置時抓一份快照。
+ *
+ * 執行期 App.tsx 會用同一份資料覆寫畫面與 JSON-LD，所以使用者與 Google
+ * 看到的永遠是最新的；這裡產的是給「不執行 JS 的爬蟲」看的靜態版本。
+ * 抓不到就沿用 index.html 裡原本寫的內容（下面的 replace 找不到就不動）。
+ */
+const fetchSiteInfo = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/site_settings?select=key,value&key=like.info_*`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('沒有資料');
+    const m = Object.fromEntries(rows.map((r) => [r.key, (r.value ?? '').trim()]));
+    const info = {
+      address: m.info_address, street: m.info_street, locality: m.info_locality,
+      region: m.info_region, postalCode: m.info_postal_code,
+      phone: m.info_phone, open: m.info_hours_open, close: m.info_hours_close,
+    };
+    if (!info.address || !info.phone || !info.open || !info.close) throw new Error('欄位不完整');
+    console.log(`prerender  基本資料來源：資料庫（${info.open}–${info.close}）`);
+    return info;
+  } catch (e) {
+    console.log(`prerender  基本資料來源：index.html 原內容（讀資料庫失敗：${e.message}）`);
+    return null;
+  }
+};
+
+const site = await fetchSiteInfo();
+
+/** 把一份 HTML 裡的地址／電話／開放時間換成後台設定的值 */
+const applySiteInfo = (html) => {
+  if (!site) return html;
+  const tel = site.phone.replace(/[^\d+]/g, '');
+  // 只把開頭的 0 換成 +886-，保留原本的連字號分組（+886-953-945-349）。
+  // 全部去掉連字號會變成 +886-953945349 這種不上不下的格式，人和機器都不好讀。
+  const intl = site.phone.replace(/^0/, '+886-');
+  return html
+    // JSON-LD
+    .replace(/"telephone":\s*"[^"]*"/, `"telephone": "${intl}"`)
+    .replace(/"opens":\s*"[^"]*"/, `"opens": "${site.open}"`)
+    .replace(/"closes":\s*"[^"]*"/, `"closes": "${site.close}"`)
+    .replace(/"streetAddress":\s*"[^"]*"/, `"streetAddress": "${esc(site.street)}"`)
+    .replace(/"addressLocality":\s*"[^"]*"/, `"addressLocality": "${esc(site.locality)}"`)
+    .replace(/"addressRegion":\s*"[^"]*"/, `"addressRegion": "${esc(site.region)}"`)
+    .replace(/"postalCode":\s*"[^"]*"/, `"postalCode": "${esc(site.postalCode)}"`)
+    // noscript 純文字
+    .replace(/地址：[^<]*<br \/>/, `地址：${esc(site.address)}<br />`)
+    .replace(/電話：<a href="tel:[^"]*"([^>]*)>[^<]*<\/a>/, `電話：<a href="tel:${tel}"$1>${esc(site.phone)}</a>`)
+    .replace(/開放時間：每日 [^<]*<br \/>/, `開放時間：每日 ${site.open} – ${site.close}<br />`);
+};
+
 
 for (const r of ROUTES) {
   let html = template;
@@ -184,7 +242,7 @@ for (const r of ROUTES) {
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
 ${r.body.map((p) => `        <p>${esc(p)}</p>`).join('\n')}
-        <p style="margin-top:1.5rem">台北古亭和聖壇｜100 臺北市中正區晉江街 72 巷 9 號｜電話 <a href="tel:0953945349" style="color:#7C5C1E">0953-945-349</a>｜每日 06:00 – 23:00</p>
+        <p style="margin-top:1.5rem">台北古亭和聖壇｜${site ? esc(site.address) : '100 臺北市中正區晉江街 72 巷 9 號'}｜電話 <a href="tel:${site ? site.phone.replace(/[^\d+]/g, '') : '0953945349'}" style="color:#7C5C1E">${site ? esc(site.phone) : '0953-945-349'}</a>｜每日 ${site ? `${site.open} – ${site.close}` : '06:00 – 23:00'}</p>
         <p><a href="/" style="color:#7C5C1E">回首頁</a></p>
         <p style="color:#7C5C1E">本頁的線上登記功能需要啟用 JavaScript。</p>
       </div>
@@ -192,7 +250,7 @@ ${r.body.map((p) => `        <p>${esc(p)}</p>`).join('\n')}
   html = html.replace('<div id="root"></div>', '<div id="root"></div>\n' + noscript);
 
   const out = resolve(DIST, r.path.slice(1) + '.html');
-  writeFileSync(out, html, 'utf8');
+  writeFileSync(out, applySiteInfo(html), 'utf8');
   console.log(`prerender  ${r.path.padEnd(12)} → dist${r.path}.html`);
 }
 
@@ -221,8 +279,23 @@ ${faq.map((f) => `        <p><strong>${esc(f.q)}</strong><br />${esc(f.a)}</p>`)
         `;
   home = home.replace(marker, faqText + marker);
 
-  writeFileSync(resolve(DIST, 'index.html'), home, 'utf8');
+  writeFileSync(resolve(DIST, 'index.html'), applySiteInfo(home), 'utf8');
   console.log(`prerender  /            → dist/index.html（FAQ ${faq.length} 題）`);
+}
+
+// llms.txt 也是給不執行 JS 的爬蟲看的靜態檔，同樣要跟著後台走
+if (site) {
+  const llmsPath = resolve(DIST, 'llms.txt');
+  try {
+    const txt = readFileSync(llmsPath, 'utf8')
+      .replace(/- 地址：.*/, `- 地址：${site.address}`)
+      .replace(/- 電話：.*/, `- 電話：${site.phone}`)
+      .replace(/- 開放時間：.*/, `- 開放時間：每日 ${site.open} – ${site.close}`);
+    writeFileSync(llmsPath, txt, 'utf8');
+    console.log('prerender  llms.txt      基本資料已同步');
+  } catch (e) {
+    console.log(`prerender  llms.txt 未更新：${e.message}`);
+  }
 }
 
 console.log(`prerender  完成 ${ROUTES.length} 頁`);

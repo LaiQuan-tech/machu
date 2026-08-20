@@ -208,7 +208,7 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
           <img src="/logo.png" alt="和聖壇" className="w-9 h-9 object-contain shrink-0" />
           <div className="min-w-0">
             <h1 className="font-bold text-[#2E2A22] text-base leading-tight font-serif">和聖壇志工報名</h1>
-            <p className="text-xs text-[#C49820] truncate">佛道兩儀慈航普渡禮懺法會</p>
+            <p className="text-xs text-[#C49820] truncate">太上慈悲普渡禮懺法會</p>
           </div>
         </div>
       </div>
@@ -216,7 +216,7 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
       <div className="max-w-2xl mx-auto px-4 space-y-4 pt-4">
         {/* 主視覺 Banner */}
         <div className="rounded-2xl overflow-hidden shadow-lg">
-          <img src="/fahui-banner.jpg" alt="佛道兩儀 慈航普渡禮懺法會" className="w-full h-auto block" />
+          <img src="/fahui-banner.png" alt="太上慈悲普渡禮懺法會" className="w-full h-auto block" />
         </div>
 
         {/* 招募說明 */}

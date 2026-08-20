@@ -6,6 +6,7 @@ import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminDonationTypesTab from './AdminDonationTypesTab';
+import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
@@ -21,7 +22,7 @@ import {
   Eye, EyeOff, ShoppingBag, Wrench
 } from 'lucide-react';
 
-type Tab = 'analytics' | 'social' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
+type Tab = 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -5608,6 +5609,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
+    { key: 'siteinfo',   label: '基本資料',   icon: <MapPin className="w-4 h-4" /> },
     { key: 'analytics',  label: '追蹤碼設定', icon: <Settings className="w-4 h-4" /> },
     { key: 'social',     label: '社群帳號設定', icon: <Share2 className="w-4 h-4" /> },
   ];
@@ -5706,6 +5708,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'about' && <AdminAboutTab />}
               {tab === 'relocation' && <AdminRelocationTab />}
               {tab === 'faq' && <AdminFaqTab />}
+              {tab === 'siteinfo' && <AdminSiteInfoTab />}
               {tab === 'analytics' && <AnalyticsTab />}
               {tab === 'social' && <SocialTab />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}

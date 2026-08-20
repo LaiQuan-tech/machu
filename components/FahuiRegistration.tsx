@@ -26,7 +26,7 @@ const isStaffPreview = (): boolean => {
 };
 
 /** 分享給親友：手機優先叫出系統分享（內含 LINE），沒有的話直接開 LINE 分享 */
-const SHARE_TEXT = '和聖壇「佛道兩儀慈悲普渡禮懺法會」線上報名中。國曆 9/13（農曆 8/03）舉行，9/06 截止報名，額滿提前截止。';
+const SHARE_TEXT = '和聖壇「太上慈悲普渡禮懺法會」線上報名中。國曆 9/13（農曆 8/03）舉行，9/06 截止報名，額滿提前截止。';
 
 const shareFahui = async (): Promise<void> => {
   // 不帶 ?preview=1 之類的參數，避免把工作人員的預覽網址轉傳出去
@@ -237,7 +237,7 @@ function ClosedScreen({ onBack, onVolunteer }: { onBack?: () => void; onVoluntee
           )}
           <div>
             <h1 className="font-serif font-bold text-[#7C5C1E] leading-tight">和聖壇法會線上報名</h1>
-            <p className="text-[11px] text-gray-500">佛道兩儀慈悲普渡禮懺法會</p>
+            <p className="text-[11px] text-gray-500">太上慈悲普渡禮懺法會</p>
           </div>
         </div>
       </header>
@@ -245,7 +245,7 @@ function ClosedScreen({ onBack, onVolunteer }: { onBack?: () => void; onVoluntee
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
         <div className="bg-gradient-to-br from-amber-800 to-amber-950 rounded-2xl p-5 text-white shadow-lg">
           <p className="text-amber-300 text-xs tracking-widest mb-1">普渡慈航・福澤萬世</p>
-          <h2 className="font-bold text-2xl font-serif mb-3">佛道兩儀慈悲普渡禮懺法會</h2>
+          <h2 className="font-bold text-2xl font-serif mb-3">太上慈悲普渡禮懺法會</h2>
           <div className="space-y-1.5 text-sm text-amber-100">
             <p>國曆 9/13（日）｜農曆 8/03（日）</p>
             <p>法會地址：台北市中正區晉江街72巷9號</p>
@@ -486,7 +486,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
           <img src="/logo.png" alt="和聖壇" className="w-9 h-9 object-contain shrink-0" />
           <div className="min-w-0">
             <h1 className="font-bold text-[#2E2A22] text-base leading-tight font-serif">和聖壇法會線上報名</h1>
-            <p className="text-xs text-[#C49820] truncate">佛道兩儀慈悲普渡禮懺法會</p>
+            <p className="text-xs text-[#C49820] truncate">太上慈悲普渡禮懺法會</p>
           </div>
           {total > 0 && (
             <div className="ml-auto text-right shrink-0">
@@ -501,8 +501,8 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
         {/* 主視覺 Banner */}
         <div className="rounded-2xl overflow-hidden shadow-lg">
           <img
-            src="/fahui-banner.jpg"
-            alt="佛道兩儀 慈悲普渡禮懺法會"
+            src="/fahui-banner.png"
+            alt="太上慈悲普渡禮懺法會"
             className="w-full h-auto block"
           />
         </div>
@@ -524,7 +524,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
         {/* Event Banner */}
         <div className="bg-gradient-to-br from-amber-800 to-amber-950 rounded-2xl p-5 text-white shadow-lg">
           <p className="text-amber-300 text-xs tracking-widest mb-1">普渡慈航・福澤萬世</p>
-          <h2 className="font-bold text-2xl font-serif mb-3">佛道兩儀慈悲普渡禮懺法會</h2>
+          <h2 className="font-bold text-2xl font-serif mb-3">太上慈悲普渡禮懺法會</h2>
           <div className="space-y-1.5 text-sm text-amber-100">
             <p>國曆 9/13（日）｜農曆 8/03（日）</p>
             <p>截止報名：9/06（日），額滿提前截止</p>
@@ -553,7 +553,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
           <p className="text-sm text-gray-600 leading-loose">
             和聖壇秉持慈悲善念，廣結十方精神，<br />
             謹訂於農曆丙午年中舉辦<br />
-            「佛道兩儀慈悲普渡禮懺法會」，<br />
+            「太上慈悲普渡禮懺法會」，<br />
             禮請諸佛菩薩聖仙，<br />
             超薦拔渡歷代祖先、冤親債主、<br />
             地基主、嬰靈及動物靈等眾，<br />

@@ -7,7 +7,7 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 
 ## 目前狀態（2026-07-06）
 
-- **法會報名表上線收件中**（佛道兩儀慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
+- **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
   判斷集中在 `shouldShowFahui()`（根路徑＋非後台＋非志工頁才顯示），初始值與 popstate 共用同一個函式；分開寫過會導致按上一頁被報名表吃掉。
 - **志工報名表也上線了**（VolunteerRegistration.tsx，migration：`supabase/migrations/volunteer_registration.sql`）。入口只在**法會報名成功頁**（刻意不放主表單，避免拉低法會報名轉換率）。點入口會把法會表已填的聯絡資料自動帶入（precedence：連結帶入 > 志工草稿 > 法會草稿）。後台「志工報名」分頁可看名單、標記已聯絡、匯出 Excel。只收 5 項基本資料（姓名/電話/地址/生日/LINE），無排班。
 - **四項服務已各自獨立成分頁**（2026-08-05）：`/booking` 預約問事、`/lamps` 祈福點燈、`/blessing` 祈福活動、`/repair` 神尊修復。首頁只剩 Hero／最新活動／關於我們／祀奉神尊／宮廟服務／隨喜捐獻。
@@ -85,7 +85,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **預渲染（`scripts/prerender.js`）**：由 `npm run build` 自動接著跑。拿剛建好的 `dist/index.html` 當模板，為 /about /booking /lamps /blessing /relocation 各產一份靜態 HTML，換掉 title／description／canonical／og，再補該頁的 JSON-LD 與 `<noscript>` 內容。**必須跑在 vite build 之後**（資產 hash 要對得上）。它不會真的執行 React，所以後台資料（公告、神尊、關於我們內文）不會進靜態 HTML；要連那些一起靜態化得換 puppeteer 版，屆時注意 `/` 在非官網網域會顯示報名表，快照時要讓瀏覽器以 heshengtan.tw 的身分解析。
 - **`vercel.json` 的陷阱**：**不要開 `cleanUrls`**。開了之後 `/about` 仍然會被最後那條 SPA 萬用 rewrite 吃掉、回傳 index.html（實測過兩次都失敗，拿掉才正常）。正確作法是在萬用規則**之前**逐條寫 `/about → /about.html`。新增預渲染頁時，`vercel.json` 與 `scripts/prerender.js` 的 ROUTES 要一起加。
 - **分頁標題**：`App.tsx` 有一份 `titles` 對照表，內容要與 `scripts/prerender.js` 的 ROUTES 一致，否則爬蟲看到的和使用者看到的不一樣。
-- **開放時間 06:00–23:00 寫在五個地方**：`index.html` 的 JSON-LD `closes` 與 noscript、`public/llms.txt`、`scripts/prerender.js` 的 noscript、`content/faq.json`、App.tsx 的頁尾與隱私政策。改一個就要五個一起改（2026-08-10 曾經頁尾 21:00、其餘 23:00 各說各話）。
+- **基本資料（地址／電話／開放時間）在資料庫**：`site_settings` 的 `info_*` 系列（後台「基本資料」分頁，migration：`supabase/migrations/site_info.sql`）。**不要再把這三項寫死在程式裡**——它們原本散在六處各寫一份，改一次要記得六個都動，漏一個就是網站自己跟自己說不一樣的話（2026-08-11 網站寫 22:30、首頁問答寫 22:00，持續數小時才被發現）。現在的分工：頁尾／隱私政策／地圖是執行期讀 DB；`PlaceOfWorship` 的 telephone／address／openingHours 由 App.tsx **執行期覆寫**靜態那份（只改這三個欄位，不整包重寫——那節點還有 hasOfferCatalog 等等，整包重寫等於維護第二份定義）；`llms.txt` 與 noscript 由 `scripts/prerender.js` 建置時寫入，按後台「重新發布」更新。開放時間存 `HH:MM` 兩欄不是一段文字：`opens`／`closes` 要機器可讀，Google 對格式不符是**靜默忽略**。電話轉國際格式只把開頭的 0 換成 `+886-`，保留連字號分組。
+- ~~**開放時間 06:00–23:00 寫在五個地方**~~（已改由資料庫管理，保留此條說明歷史）：`index.html` 的 JSON-LD `closes` 與 noscript、`public/llms.txt`、`scripts/prerender.js` 的 noscript、`content/faq.json`、App.tsx 的頁尾與隱私政策。改一個就要五個一起改（2026-08-10 曾經頁尾 21:00、其餘 23:00 各說各話）。
 - **捐款類別**：內容在**資料庫 `donation_types`**（後台「捐獻管理」分頁上方的可收合區塊，migration：`supabase/migrations/donation_types.sql`）。`types.ts` 的 `DonationType` 列舉降為保底。**最重要的一件事：`donations.type` 存的是類別的「文字」不是 id**，所以後台改名只影響之後的捐款，歷史紀錄維持原樣——那是財務資料，不擅自重寫；改名時 UI 會顯示受影響筆數並詢問要不要一併更新。有紀錄的類別**禁止刪除**（會讓報表指向不存在的類別），只能隱藏。「神尊修復」刻意不進這張表：那一項走神尊修復專頁、金額綁定專案，前台下拉一律排除。
 - **常見問題**：內容在**資料庫 `faq_items`**（後台「常見問題」分頁可增刪改、拖拉排序，migration：`supabase/migrations/faq_items.sql`）。三份輸出的時效性不同，改動前先搞清楚：首頁畫面執行期讀資料庫（存檔就變）；`FAQPage` 結構化資料由 App.tsx 在**執行期覆蓋**預渲染那份（Google 執行 JS，所以標記與畫面永遠一致，這是 FAQPage 最容易踩的雷）；`<noscript>` 純文字是 `scripts/prerender.js` 建置時抓資料庫的快照，**下次部署才更新**。`content/faq.json` 降級為保底，資料表沒建或 Supabase 暫停時前台與建置都靠它，不會開天窗。後台有「重新發布」按鈕可自行觸發重新建置，讓那份 noscript 快照跟上（`api/republish.ts`）。執行期注入的那份 `<script id="faq-jsonld">` **只掛在首頁**，換頁要清掉——分頁上看不到問答，掛了就是「標記的內容使用者看不到」。
 - （舊寫法備查）`content/faq.json` 曾經是**三個地方共用同一份**——首頁 `#faq` 區塊（App.tsx 讀 JSON 渲染）、`FAQPage` 結構化資料、`<noscript>` 純文字（後兩者由 `scripts/prerender.js` 注入 `dist/index.html`）。Google 的 FAQPage 規則要求標記的內容必須在頁面上看得到，所以**只改 JSON、不要在任何一邊另寫一份**。答案是廟方確認過的事實，不要為了 SEO 自己補。 首頁那份是**折疊的**（原生 `<details>`，樣式在 index.css 的 `.faq-item`）：Google 的 FAQPage 規則要求標記的內容使用者要看得到，「點一下就展開」算數，但**不能為了縮短頁面把答案整段拿掉**——那會讓結構化資料與畫面不一致。

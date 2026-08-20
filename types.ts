@@ -10,8 +10,8 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['analytics', 'social', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
-  staff:   ['about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
+  admin:   ['analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
+  staff:   ['siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
   finance: ['overview', 'fahui', 'donations', 'receivables'],
 };
 
@@ -326,6 +326,25 @@ export interface DonationTypeRecord {
 }
 
 export type DonationTypeData = Omit<DonationTypeRecord, 'id'>;
+
+// ─── 網站基本資料 ──────────────────────────────────────────
+/**
+ * 地址、電話、開放時間。存在 site_settings（key 前綴 `info_`），後台可改。
+ *
+ * 地址存兩份：`address` 是給人看的完整字串，其餘四欄是結構化資料的
+ * PostalAddress 需要的拆分欄位。開放時間存「時:分」而不是一段文字，
+ * 因為 opens/closes 要機器可讀，存成「每日 06:00 – 23:00」得回頭解析。
+ */
+export interface SiteInfo {
+  address: string;
+  street: string;
+  locality: string;
+  region: string;
+  postalCode: string;
+  phone: string;
+  hoursOpen: string;
+  hoursClose: string;
+}
 
 /** 遷址捐款的方案表格：金額當欄、回饋項目當列的矩陣 */
 export interface RelocationPlanRow {
