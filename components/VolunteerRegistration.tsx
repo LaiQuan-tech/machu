@@ -322,7 +322,7 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
                 className={inputCls}
                 value={contact.lineId}
                 onChange={e => setContact(c => ({ ...c, lineId: e.target.value }))}
-                placeholder="便於後續聯繫"
+                placeholder="便於後續聯繫" aria-label="便於後續聯繫"
               />
             </div>
           </div>
@@ -382,7 +382,7 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
               className={inputCls}
               value={availabilityNote}
               onChange={e => setAvailabilityNote(e.target.value)}
-              placeholder="例：9/11 下班後 18:30 才能到"
+              placeholder="例：9/11 下班後 18:30 才能到" aria-label="例：9/11 下班後 18:30 才能到"
             />
           </div>
         </section>

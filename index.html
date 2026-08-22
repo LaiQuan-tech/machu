@@ -152,7 +152,10 @@
         -webkit-font-smoothing: antialiased;
       }
       button, a, [role="button"] { touch-action: manipulation; }
-      :focus-visible { outline: 3px solid rgba(196, 152, 32, 0.82); outline-offset: 3px; }
+      /* 全域鍵盤焦點樣式移到 index.css：原本這條用金色，在白底只有 2.67:1、
+         米底 2.36:1，都低於 WCAG 2.2 對焦點指示的 3:1 要求。
+         現在淺色區用褐色（6.16:1）、深色區用金色（5.34:1），分開處理。
+         **不要在這裡再加一條全域 :focus-visible**，兩條會互相打架。 */
       img { height: auto; }
       h1, h2, h3, h4, h5, h6 {
         font-family: 'Noto Serif TC', serif;

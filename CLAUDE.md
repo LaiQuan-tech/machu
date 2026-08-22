@@ -93,6 +93,14 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **靜態檔**：`public/robots.txt`（明確開放 GPTBot／ClaudeBot／PerplexityBot 等）、`public/sitemap.xml`、`public/llms.txt`。這三個都要靠 rewrite 之外的靜態檔案供應，之前它們回傳的是整頁 HTML。
 - **結構化資料**：`index.html` 的 JSON-LD 有 PlaceOfWorship／WebSite／Event 三個節點。地址、電話、開放時間（每日 06:00–23:00）、法會日期改了要同步。
 
+## 無障礙（2026-08-13 用 ui-ux-pro-max 的準則實測後修）
+
+- **焦點樣式在 `index.css`，不要在 `index.html` 再寫一條全域 `:focus-visible`**——兩條會打架。淺色區用褐 `#7C5C1E`（白底 6.16:1），深色區（footer／hero／#booking）用金 `#C49820`（深底 5.34:1）。原本全站只有一條金色的，白底 2.67:1、米底 2.36:1，都低於 WCAG 2.2 對焦點指示的 3:1。
+- **檢測焦點樣式不能用 `.focus()`**：程式呼叫不會觸發 `:focus-visible`，會得到「沒有焦點樣式」的假陰性（我踩過，還據此寫錯了結論）。要驗證請真的送 Tab 鍵，或直接檢查樣式表裡有沒有那條規則。
+- **表單欄位一律要有「可及名稱」**：優先用 `<label htmlFor>` ＋ input 的 `id`；沒有可見標籤時才用 `aria-label`。**已經有可見標籤的欄位不要再加 `aria-label`**——它會蓋掉可見標籤，畫面寫「電子郵件」螢幕閱讀器卻念 placeholder 的說明文字（我加過一輪又撤掉）。`aria-label` 的內容要是欄位名，不要把「*」或「（選填）」念進去。
+- 送出失敗的提示要有 `role="alert"` 才會被朗讀；旁邊的裝飾圖示加 `aria-hidden="true"`。
+- 頁尾一類的小連結要有足夠的點擊區（WCAG 最小 24px），用 `py-2` 撐開比改字級安全。
+
 ## 文案與 UI 慣例（使用者明確要求過）
 
 - **全站不用 emoji**。裝飾用線條與色塊。

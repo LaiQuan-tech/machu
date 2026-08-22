@@ -302,15 +302,15 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
       {inputMode === 'solar' ? (
         <div className="space-y-2">
           {/* 年 */}
-          <select value={solarYear} onChange={e => handleSolarYearChange(Number(e.target.value))} className={selCls}>
+          <select aria-label="出生年（國曆）" value={solarYear} onChange={e => handleSolarYearChange(Number(e.target.value))} className={selCls}>
             {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {/* 月 + 日 */}
           <div className="grid grid-cols-2 gap-2">
-            <select value={solarMonth} onChange={e => handleSolarMonthChange(Number(e.target.value))} className={selCls}>
+            <select aria-label="出生月（國曆）" value={solarMonth} onChange={e => handleSolarMonthChange(Number(e.target.value))} className={selCls}>
               {SOLAR_MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <select value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
+            <select aria-label="出生日（國曆）" value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
               <option value={0}>吉日</option>
               {Array.from({ length: solarMaxDays }, (_, i) => i + 1).map(d => (
                 <option key={d} value={d}>{d}日</option>
@@ -329,7 +329,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
       ) : (
         <div className="space-y-2">
           {/* 年 */}
-          <select value={lunarYear} onChange={e => handleLunarYearChange(Number(e.target.value))} className={selCls}>
+          <select aria-label="出生年（農曆）" value={lunarYear} onChange={e => handleLunarYearChange(Number(e.target.value))} className={selCls}>
             {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {/* 月 + 日 */}
@@ -339,7 +339,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
               onChange={e => handleLunarMonthChange(e.target.value)} className={selCls}>
               {lunarMonthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <select value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
+            <select aria-label="出生日（農曆）" value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
               <option value={0}>吉日</option>
               {LUNAR_DAYS.map((d, i) => <option key={i} value={i + 1}>{d}</option>)}
             </select>

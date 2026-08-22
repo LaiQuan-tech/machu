@@ -723,7 +723,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
               inputMode="numeric"
               value={mealSponsor}
               onChange={e => setMealSponsor(e.target.value)}
-              placeholder="隨喜贊助金額（選填）"
+              placeholder="隨喜贊助金額（選填）" aria-label="隨喜贊助金額"
             />
           </div>
         </div>
@@ -739,7 +739,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
             rows={3}
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder="如有其他需要協助的事項，可留言給工作人員（選填）"
+            placeholder="如有其他需要協助的事項，可留言給工作人員（選填）" aria-label="如有其他需要協助的事項，可留言給工作人員"
           />
         </div>
 
@@ -785,7 +785,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
             maxLength={5}
             value={contact.accountLast5}
             onChange={e => setContact(c => ({ ...c, accountLast5: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-            placeholder="已完成匯款請填 5 碼數字"
+            placeholder="已完成匯款請填 5 碼數字" aria-label="已完成匯款請填 5 碼數字"
           />
           <p className="text-[11px] text-gray-400 mt-1.5">
             尚未匯款可先留空，完成匯款後再以 LINE 官方帳號告知即可。
