@@ -2235,8 +2235,8 @@ const App: React.FC = () => {
                   )}
 
                   {bookingStatus === 'error' && (
-                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
+                    <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" aria-hidden="true" />
                       <span>預約提交失敗，請檢查網路或稍後再試。</span>
                     </div>
                   )}
@@ -2893,8 +2893,8 @@ const App: React.FC = () => {
                     </div>
 
                     {blessingStatus === 'error' && (
-                      <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-lg">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
+                      <div role="alert" className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-lg">
+                        <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                         送出失敗，請稍後再試。
                       </div>
                     )}
@@ -3224,8 +3224,8 @@ const App: React.FC = () => {
                     onChange={e => setRepairNotes(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                   {repairFormStatus === 'error' && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm">
-                      <AlertCircle className="w-4 h-4" /> 提交失敗，請稍後再試。
+                    <div role="alert" className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm">
+                      <AlertCircle className="w-4 h-4" aria-hidden="true" /> 提交失敗，請稍後再試。
                     </div>
                   )}
                   <button type="submit" disabled={repairFormStatus === 'loading'}
@@ -3394,8 +3394,8 @@ const App: React.FC = () => {
                   </div>
 
                   {donationStatus === 'error' && (
-                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
+                    <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" aria-hidden="true" />
                       <span>提交失敗，請檢查網路或稍後再試。</span>
                     </div>
                   )}
@@ -3453,12 +3453,12 @@ const App: React.FC = () => {
             {faqItems.map((item) => (
               <details key={item.q} className="faq-item sr sr-up">
                 <summary>
-                  <span className="text-temple-gold mr-3 select-none">問</span>
+                  <span className="text-temple-red mr-3 select-none" aria-hidden="true">問</span>
                   <span className="flex-1">{item.q}</span>
                   <span className="faq-chevron" aria-hidden="true" />
                 </summary>
                 <div className="faq-answer">
-                  <span className="text-temple-gold/60 mr-3 select-none">答</span>
+                  <span className="text-temple-red/70 mr-3 select-none" aria-hidden="true">答</span>
                   <span>{item.a}</span>
                 </div>
               </details>
@@ -3568,18 +3568,21 @@ const App: React.FC = () => {
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm gap-4">
             <p>&copy; {new Date().getFullYear()} 台北古亭和聖壇. All rights reserved. 網站設計：和聖壇管理委員會</p>
             <div className="flex items-center gap-4">
+              {/* py-2 把點擊區從 20px 撐到 36px：WCAG 的最小目標是 24px，
+                  而頁尾是長者最常誤點的地方。文字色也從 gray-500 提到 gray-300——
+                  深色底上的 gray-500 只有 2.3:1，看不清楚。 */}
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="hover:text-temple-gold transition-colors"
+                className="py-2 text-gray-300 hover:text-temple-gold transition-colors"
               >
                 隱私權政策
               </button>
-              <span className="text-gray-700">·</span>
+              <span className="text-gray-600" aria-hidden="true">·</span>
               <button
                 onClick={() => setShowLoginModal(true)}
-                className="flex items-center hover:text-temple-gold transition-colors"
+                className="flex items-center py-2 text-gray-300 hover:text-temple-gold transition-colors"
               >
-                <Settings className="w-4 h-4 mr-1" /> 管理員登入
+                <Settings className="w-4 h-4 mr-1" aria-hidden="true" /> 管理員登入
               </button>
             </div>
           </div>

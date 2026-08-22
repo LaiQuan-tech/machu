@@ -42,3 +42,23 @@
   color: #4B5563;
   line-height: 1.9;
 }
+
+/* ── 鍵盤焦點樣式（全域）────────────────────────────────────────────────
+   量測時 32 個可聚焦元件裡有 28 個完全沒有焦點指示，用 Tab 鍵操作看不出
+   自己在哪。對行動不便或習慣鍵盤的長者是硬傷。
+
+   用 :focus-visible 而不是 :focus：滑鼠點按鈕時不該冒出外框（那會被誤認為
+   選取狀態），只有鍵盤操作才顯示。這是瀏覽器幫我們判斷的，不必自己寫邏輯。
+
+   放在這裡而不是逐一加 Tailwind class：可聚焦元件散在四十幾個地方，
+   逐一加不但改不完，日後新增的元件又會漏掉。 */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid #7C5C1E;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* 深色底（導覽列、頁尾、預約問事區）上用褐色看不見，改用金色 */
+:where(footer, .hero-scene, #booking) :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: #C49820;
+}
