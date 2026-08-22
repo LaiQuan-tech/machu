@@ -310,7 +310,6 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
             <div>
               <label className="block text-xs text-gray-500 mb-1">生日及生肖 <span className="text-gray-400">（選填，填國曆自動換算農曆）</span></label>
               <BirthDatePicker
-                solarOnly
                 hideLabel
                 birthDate={contact.birthDate}
                 onChange={(bd, zod) => setContact(c => ({ ...c, birthDate: bd, zodiac: zod ?? '' }))}

@@ -630,7 +630,6 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
             <div>
               <label className="block text-xs text-gray-500 mb-1">生日 <span className="text-gray-400">（選填，請填國曆自動換算農曆，報名項目可套用「同聯絡人生日」）</span></label>
               <BirthDatePicker
-                solarOnly
                 hideLabel
                 birthDate={contact.birthDate}
                 onChange={(bd, zod) => setContact(c => ({ ...c, birthDate: bd, zodiac: zod ?? '' }))}
@@ -958,7 +957,6 @@ function ServiceSection({ config, entries, contact, onQuantityChange, onFieldCha
                       </div>
                     ) : (
                       <BirthDatePicker
-                        solarOnly
                         hideLabel
                         birthDate={fv.value}
                         onChange={(bd, zod) => {

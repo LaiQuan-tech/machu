@@ -123,12 +123,33 @@ function buildLunarResult(gregorianYear: number, monthValue: string, dayNum: num
   return { birthDate: prefix };
 }
 
-function parseBirthDate(s: string): { gregorianYear: number; monthValue: string; dayNum: number; birthHour: string } | null {
+function parseBirthDate(s: string): { gregorianYear: number; monthValue: string; dayNum: number; birthHour: string; solarYear?: number; solarMonth?: number; solarDay?: number } | null {
   if (!s) return null;
   const hourMatch = s.match(/([子丑寅卯辰巳午未申酉戌亥]時)$/);
   const birthHour = hourMatch ? hourMatch[1] : '';
   const d = birthHour ? s.slice(0, -2) : s;
   if (!d) return { gregorianYear: 0, monthValue: '0', dayNum: 0, birthHour };
+  // 合併格式（本站的標準）：民國72年6月20日（農曆五月初十）
+  // 括號外是國曆、括號內是農曆；跨年時農曆會多帶年份：（農曆68年臘月初八）
+  // 這一段必須放在最前面——底下的農曆規則會誤判它，把「6月20日（農曆五」當成月份。
+  const merged = d.match(/^民國(\d+)年(\d+)月(\d+)日（農曆(?:(\d+)年)?(閏?)(.+?)月(.+?)）$/);
+  if (merged) {
+    const mi = LUNAR_MONTH_VALUES.indexOf(merged[6]) + 1;
+    const di = LUNAR_DAYS.indexOf(merged[7]) + 1;
+    if (mi > 0 && di > 0) {
+      return {
+        gregorianYear: (merged[4] ? parseInt(merged[4]) : parseInt(merged[1])) + 1911,
+        monthValue: merged[5] === '閏' ? `L${mi}` : String(mi),
+        dayNum: di,
+        birthHour,
+        // 國曆欄位：讓選單能直接還原成使用者當初填的那三個值
+        solarYear: parseInt(merged[1]) + 1911,
+        solarMonth: parseInt(merged[2]),
+        solarDay: parseInt(merged[3]),
+      };
+    }
+  }
+
   const full = d.match(/^民國(\d+)年農曆(閏?)(.+)月(.+)$/);
   if (full) {
     const mi = LUNAR_MONTH_VALUES.indexOf(full[3]) + 1;
@@ -169,24 +190,25 @@ interface BirthDatePickerProps {
    * @param zodiac 自動推算的生肖（可能為 undefined）
    */
   onChange: (birthDate: string, zodiac?: ZodiacSign) => void;
-  /** 只允許國曆輸入（隱藏農曆切換），自動換算農曆供檢視 */
-  solarOnly?: boolean;
   /** 隱藏內建「生日」標題列（由外層自訂標題時使用） */
   hideLabel?: boolean;
 }
 
 // ── 元件 ───────────────────────────────────────────────────────────────────────
 
-const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthDate, onChange, solarOnly, hideLabel }) => {
+const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthDate, onChange, hideLabel }) => {
   const parsedInitial = parseBirthDate(initBirthDate);
 
-  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(solarOnly ? 'solar' : (parsedInitial ? 'lunar' : 'solar'));
+  // **一律以國曆為預設**。以前部分表單只要有舊值就切到農曆模式，
+  // 造成同一個網站兩種輸入法、兩種儲存格式。現在只有一種主路徑，
+  // 「我只知道農曆」是給不記得國曆生日的長者用的次要入口。
+  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>('solar');
   const [currentBirthDate, setCurrentBirthDate] = useState(initBirthDate);
 
   // 國曆下拉
-  const [solarYear, setSolarYear] = useState(0);
-  const [solarMonth, setSolarMonth] = useState(0);
-  const [solarDay, setSolarDay] = useState(0);
+  const [solarYear, setSolarYear] = useState(() => parsedInitial?.solarYear ?? 0);
+  const [solarMonth, setSolarMonth] = useState(() => parsedInitial?.solarMonth ?? 0);
+  const [solarDay, setSolarDay] = useState(() => parsedInitial?.solarDay ?? 0);
 
   // 農曆下拉
   const [lunarYear, setLunarYear] = useState(() => parsedInitial?.gregorianYear ?? 0);
@@ -201,9 +223,9 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
   const applySolar = (y: number, m: number, d: number, hour: string) => {
     const result = buildSolarResult(y, m, d);
     let dateStr = result ? result.birthDate : '';
-    // solarOnly（法會/志工）模式：輸出同時含完整國曆與農曆，例「民國72年6月20日（農曆正月廿六）」
-    // 讓後台可拆成國曆／農曆兩欄。非 solarOnly 維持原本農曆字串不變。
-    if (result && solarOnly && y > 0 && m > 0 && d > 0) {
+    // **全站統一的儲存格式**：同時含完整國曆與農曆，例「民國72年6月20日（農曆正月廿六）」。
+    // 後台可直接拆成國曆／農曆兩欄，不必回頭換算。
+    if (result && y > 0 && m > 0 && d > 0) {
       const solarRoc = y - 1911;
       const parts = result.birthDate.match(/^民國(\d+)年(.+)$/);
       const lunarRoc = parts ? Number(parts[1]) : solarRoc;
@@ -222,7 +244,29 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
 
   const applyLunar = (y: number, mv: string, d: number, hour: string) => {
     const result = buildLunarResult(y, mv, d);
-    const newDate = result ? result.birthDate + hour : hour;
+    let dateStr = result ? result.birthDate : '';
+    // 從農曆推回國曆，輸出與國曆輸入完全相同的合併格式。
+    //
+    // 為什麼要這樣：以前農曆模式只存「民國72年農曆五月初十」，國曆模式存合併字串，
+    // 同一個欄位存在兩種格式，後台匯出要分兩路處理，而且看到一筆純農曆的資料時
+    // 無從得知使用者當初是不是選錯了模式。統一之後只有一種格式。
+    if (result && y > 0 && mv !== '0' && d > 0) {
+      const isLeap = mv.startsWith('L');
+      const monthNum = parseInt(isLeap ? mv.slice(1) : mv);
+      try {
+        const solar = Lunar.fromYmd(y, isLeap ? -monthNum : monthNum, d).getSolar();
+        const solarRoc = solar.getYear() - 1911;
+        const parts = result.birthDate.match(/^民國(\d+)年(.+)$/);
+        const lunarRoc = parts ? Number(parts[1]) : solarRoc;
+        const lunarPart = parts ? parts[2] : result.birthDate;
+        // 農曆年與國曆年不同時（春節前出生）要把農曆年標出來，理由同 buildSolarResult
+        const lunarLabel = lunarRoc === solarRoc
+          ? lunarPart
+          : lunarPart.replace(/^農曆/, `農曆${lunarRoc}年`);
+        dateStr = `民國${solarRoc}年${solar.getMonth()}月${solar.getDay()}日（${lunarLabel}）`;
+      } catch { /* 換算失敗就沿用純農曆字串，總比什麼都不存好 */ }
+    }
+    const newDate = dateStr + hour;
     setCurrentBirthDate(newDate);
     onChange(newDate, result?.zodiac);
   };
@@ -282,21 +326,23 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
 
   return (
     <div className="space-y-2">
-      {/* 國曆 / 農曆 切換（solarOnly 時隱藏，僅國曆輸入） */}
-      <div className={`flex items-center justify-between ${hideLabel ? 'hidden' : ''}`}>
-        <label className="text-xs font-medium text-gray-600">生日{solarOnly ? '（請填國曆，自動換算農曆）' : ''}</label>
-        {!solarOnly && (
-          <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
-            <button type="button" onClick={() => setInputMode('solar')}
-              className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-              國曆
-            </button>
-            <button type="button" onClick={() => setInputMode('lunar')}
-              className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-              農曆
-            </button>
-          </div>
-        )}
+      {/*
+        以前這裡是「國曆／農曆」兩顆對等的切換鈕。問題不在複雜，而在**選錯無法察覺**：
+        信眾在農曆模式下填了國曆生日，系統照收，事後沒有任何方法分辨對錯。
+        改成國曆為唯一主路徑，農曆是一行不起眼的次要入口——會走進去的，
+        是真的只記得農曆的人。
+      */}
+      <div className={`flex items-center justify-between gap-2 ${hideLabel ? 'hidden' : ''}`}>
+        <label className="text-xs font-medium text-gray-600">
+          生日{inputMode === 'solar' ? '（請填國曆，自動換算農曆）' : '（農曆輸入，自動換算國曆）'}
+        </label>
+        <button
+          type="button"
+          onClick={() => setInputMode(m => (m === 'solar' ? 'lunar' : 'solar'))}
+          className="text-xs text-temple-red underline underline-offset-2 hover:text-temple-dark shrink-0"
+        >
+          {inputMode === 'solar' ? '我只知道農曆' : '改用國曆'}
+        </button>
       </div>
 
       {inputMode === 'solar' ? (
@@ -322,7 +368,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
             <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
               <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
               <span className="text-sm text-temple-dark font-medium">{currentBirthDate}</span>
-              <span className="text-xs text-gray-400 ml-1">（農曆換算）</span>
+              <span className="text-xs text-gray-400 ml-1">（自動換算）</span>
             </div>
           )}
         </div>
