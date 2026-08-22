@@ -714,16 +714,20 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
             普渡當日將提供工作人員平安餐與茶飲，感謝他們辛勞付出、圓滿法會。
             誠摯邀請有緣信眾發心護持，金額不限、隨喜功德，贊助者將於普渡當日一一稟報祈福。
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-[#7C5C1E] font-bold">$</span>
+          {/* 可見標籤：placeholder 一打字就消失，只靠它的話填到一半分心回來，
+              那格有數字卻看不出是什麼 */}
+          <label htmlFor="fahui-meal-sponsor" className="block text-xs text-gray-500 mt-3 mb-1">贊助金額（選填）</label>
+          <div className="flex items-center gap-2">
+            <span className="text-[#7C5C1E] font-bold" aria-hidden="true">$</span>
             <input
+              id="fahui-meal-sponsor"
               className={inputCls}
               type="number"
               min={0}
               inputMode="numeric"
               value={mealSponsor}
               onChange={e => setMealSponsor(e.target.value)}
-              placeholder="隨喜贊助金額（選填）" aria-label="隨喜贊助金額"
+              placeholder="隨喜贊助金額（選填）"
             />
           </div>
         </div>
@@ -775,7 +779,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
         {/* 匯款帳號後五碼 —— 放在費用明細之後、送出之前，位置貼著付款情境。
             多數人是送出後才去匯款，所以是選填；已先匯款的人可以直接填，省掉 LINE 回報。 */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#C49820]/20">
-          <label className="block text-xs text-gray-500 mb-1">
+          <label htmlFor="fahui-account-last5" className="block text-xs text-gray-500 mb-1">
             匯款帳號後五碼 <span className="text-gray-400">（選填）</span>
           </label>
           <input
@@ -785,7 +789,8 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
             maxLength={5}
             value={contact.accountLast5}
             onChange={e => setContact(c => ({ ...c, accountLast5: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-            placeholder="已完成匯款請填 5 碼數字" aria-label="已完成匯款請填 5 碼數字"
+            placeholder="已完成匯款請填 5 碼數字"
+            id="fahui-account-last5"
           />
           <p className="text-[11px] text-gray-400 mt-1.5">
             尚未匯款可先留空，完成匯款後再以 LINE 官方帳號告知即可。

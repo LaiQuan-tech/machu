@@ -2136,16 +2136,22 @@ const App: React.FC = () => {
                       {/* 姓名 / 稱謂 / 生日 / 生肖 / 問事項目 */}
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-2">
-                          <input required type="text" placeholder="信眾大名 *" aria-label="信眾大名"
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">信眾大名 *</span>
+                            <input required type="text"
                             value={p.name}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
                             className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                          <select aria-label="稱謂或關係" value={p.contactLabel || ''}
+                          </label>
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
+                            <select value={p.contactLabel || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
                             className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             <option value="">稱謂 / 關係</option>
                             {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
+                          </label>
                         </div>
                         {/* 生日選擇器 */}
                         <BirthDatePicker
@@ -2155,26 +2161,38 @@ const App: React.FC = () => {
                           onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
                         <div className="grid grid-cols-2 gap-2">
-                          <select aria-label="性別" value={p.gender || ''}
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
+                            <select value={p.gender || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                             className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             <option value="">性別（選填）</option>
                             {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
-                          <select aria-label="問事類型" required value={p.type}
+                          </label>
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">問事類型 *</span>
+                            <select required value={p.type}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
                             className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
+                          </label>
                         </div>
-                        <input required type="text" placeholder="現居地址 *" aria-label="現居地址"
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">現居地址 *</span>
+                          <input required type="text"
                           value={p.address}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                        <textarea rows={2} placeholder="問事內容（選填）" aria-label="問事內容"
+                        </label>
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">問事內容（選填）</span>
+                          <textarea rows={2}
                           value={p.notes || ''}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, notes: e.target.value } : x))}
                           className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none" />
+                        </label>
                       </div>
                     </div>
                   ))}
@@ -2195,7 +2213,9 @@ const App: React.FC = () => {
                         目前無開放場次，請關注最新公告。
                       </div>
                     ) : (
-                      <select aria-label="問事場次" required value={selectedSessionId} onChange={e => setSelectedSessionId(e.target.value)}
+                      <label className="block">
+                        <span className="block text-xs font-medium text-gray-600 mb-1">選擇問事場次 *</span>
+                        <select required value={selectedSessionId} onChange={e => setSelectedSessionId(e.target.value)}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm">
                         <option value="">請選擇場次...</option>
                         {bookingSessions.map(s => {
@@ -2211,6 +2231,7 @@ const App: React.FC = () => {
                           );
                         })}
                       </select>
+                      </label>
                     )}
                     {selectedSessionId && (() => {
                       const s = bookingSessions.find(x => x.id === selectedSessionId);
@@ -2228,9 +2249,12 @@ const App: React.FC = () => {
                   {!member && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
-                        placeholder="請留下方便聯繫的電話" aria-label="請留下方便聯繫的電話"
+                      <label className="block">
+                        <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                        placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                      </label>
                     </div>
                   )}
 
@@ -2391,7 +2415,9 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         {/* 燈別 */}
-                        <select aria-label="點燈項目" required value={p.serviceId}
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">點燈項目 *</span>
+                          <select required value={p.serviceId}
                           onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, serviceId: e.target.value } : x))}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                           <option value="">請選擇服務項目 *</option>
@@ -2399,18 +2425,25 @@ const App: React.FC = () => {
                             <option key={cfg.id} value={cfg.id}>{cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年</option>
                           ))}
                         </select>
+                        </label>
                         {/* 姓名 + 稱謂 */}
                         <div className="grid grid-cols-2 gap-2">
-                          <input required type="text" placeholder="信眾大名 *" aria-label="信眾大名"
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">信眾大名 *</span>
+                            <input required type="text"
                             value={p.name}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                          <select aria-label="稱謂或關係" value={p.contactLabel || ''}
+                          </label>
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
+                            <select value={p.contactLabel || ''}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             <option value="">稱謂 / 關係</option>
                             {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
+                          </label>
                         </div>
                         {/* 生日選擇器 */}
                         <BirthDatePicker
@@ -2421,17 +2454,23 @@ const App: React.FC = () => {
                         />
                         {/* 性別 */}
                         <div>
-                          <select aria-label="性別" value={p.gender || ''}
+                          <label className="block">
+                            <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
+                            <select value={p.gender || ''}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             <option value="">性別（選填）</option>
                             {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
+                          </label>
                         </div>
-                        <input required type="text" placeholder="現居地址 *" aria-label="現居地址"
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">現居地址 *</span>
+                          <input required type="text"
                           value={p.address}
                           onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        </label>
                       </div>
                     ))}
 
@@ -2446,9 +2485,12 @@ const App: React.FC = () => {
                     {!member && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
-                          placeholder="請留下方便聯繫的電話" aria-label="請留下方便聯繫的電話"
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                          <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                          placeholder="請留下方便聯繫的電話"
                           className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        </label>
                       </div>
                     )}
 
@@ -2458,9 +2500,12 @@ const App: React.FC = () => {
                     {/* 備註（共用） */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
-                      <input value={lampNotes} onChange={e => setLampNotes(e.target.value)}
-                        placeholder="完成匯款後請填寫帳號後五碼，以利核對" aria-label="完成匯款後請填寫帳號後五碼，以利核對"
+                      <label className="block">
+                        <span className="block text-xs font-medium text-gray-600 mb-1">匯款帳號後五碼（選填）</span>
+                        <input value={lampNotes} onChange={e => setLampNotes(e.target.value)}
+                        placeholder="完成匯款後請填寫帳號後五碼，以利核對"
                         className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                      </label>
                     </div>
 
                     {lampStatus === 'error' && (
@@ -2681,25 +2726,34 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">姓名 *</label>
-                            <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="姓名" aria-label="姓名" />
+                            <label className="block">
+                              <span className="block text-xs font-medium text-gray-600 mb-1">姓名 *</span>
+                              <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                            </label>
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">性別</label>
-                            <select aria-label="性別" value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                            <label className="block">
+                              <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
+                              <select value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                               <option value="">不指定</option>
                               {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
+                            </label>
                           </div>
                           <div className="col-span-2">
                             <label className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</label>
-                            <select aria-label="稱謂或關係" value={p.contactLabel || ''}
+                            <label className="block">
+                              <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
+                              <select value={p.contactLabel || ''}
                               onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                               <option value="">請選擇稱謂 / 關係</option>
                               {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
+                            </label>
                           </div>
                         </div>
                         {/* 護持方案（有多方案時才顯示） */}
@@ -2784,13 +2838,16 @@ const App: React.FC = () => {
                                     <HeartHandshake className="w-4 h-4 text-green-600 shrink-0" />
                                     <span className="text-sm text-gray-700 flex-1">{addon.name}</span>
                                     <span className="text-xs text-gray-500 font-medium shrink-0">NT$</span>
-                                    <input type="number" min="1" placeholder="金額（選填）" aria-label="金額"
+                                    <label className="block">
+                                      <span className="block text-xs font-medium text-gray-600 mb-1">金額（選填）</span>
+                                      <input type="number" min="1"
                                       value={p.voluntaryFees?.[addon.id] || ''}
                                       onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
                                         ...x,
                                         voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: e.target.value ? Number(e.target.value) : 0 }
                                       } : x))}
                                       className="w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
+                                    </label>
                                   </div>
                                 ))}
                               </div>
@@ -2860,8 +2917,11 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="現居地址（可選）" aria-label="現居地址（可選）" />
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">現居地址（選填）</span>
+                          <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        </label>
                       </div>
                     ))}
 
@@ -2876,9 +2936,12 @@ const App: React.FC = () => {
                     {!member && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
-                          placeholder="請留下方便聯繫的電話" aria-label="請留下方便聯繫的電話"
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                          <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                          placeholder="請留下方便聯繫的電話"
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        </label>
                       </div>
                     )}
 
@@ -2888,8 +2951,11 @@ const App: React.FC = () => {
                     {/* 備註（共用） */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
-                      <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="完成匯款後請填寫帳號後五碼，以利核對" aria-label="完成匯款後請填寫帳號後五碼，以利核對" />
+                      <label className="block">
+                        <span className="block text-xs font-medium text-gray-600 mb-1">匯款帳號後五碼（選填）</span>
+                        <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="完成匯款後請填寫帳號後五碼，以利核對" />
+                      </label>
                     </div>
 
                     {blessingStatus === 'error' && (
@@ -3203,26 +3269,38 @@ const App: React.FC = () => {
                 }} className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 sm:p-6 space-y-4">
                   {/* 神尊名稱與大圖已在視窗上方，這裡不重複 */}
                   <div className="flex items-center gap-2">
-                    <input required type="text" placeholder="大德姓名 *" aria-label="大德姓名" value={repairName}
+                    <label className="block">
+                      <span className="block text-xs font-medium text-gray-600 mb-1">大德姓名 *</span>
+                      <input required type="text" value={repairName}
                       onChange={e => setRepairName(e.target.value)}
                       className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                    </label>
                     <button type="button" onClick={() => handleOpenContactPicker('repair', '__repair__')}
                       className="flex items-center gap-1 text-xs px-2.5 py-2 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all shrink-0">
                       <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
                     </button>
                   </div>
-                  <input required type="number" placeholder="捐款金額 (NTD) *" aria-label="捐款金額 (NTD)" min="1" value={repairAmount || ''}
+                  <label className="block">
+                    <span className="block text-xs font-medium text-gray-600 mb-1">捐款金額（NTD）*</span>
+                    <input required type="number" min="1" value={repairAmount || ''}
                     onChange={e => setRepairAmount(Number(e.target.value))}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  </label>
                   {!member && (
-                    <input required type="tel" placeholder="聯絡電話 *" aria-label="聯絡電話" value={guestPhone}
+                    <label className="block">
+                      <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                      <input required type="tel" value={guestPhone}
                       onChange={e => setGuestPhone(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                    </label>
                   )}
                   <BankInfoBox tip="匯款完成後請於下方備註填寫後五碼！" />
-                  <input type="text" placeholder="備註 / 匯款帳號後五碼（選填）" aria-label="備註 / 匯款帳號後五碼" value={repairNotes}
+                  <label className="block">
+                    <span className="block text-xs font-medium text-gray-600 mb-1">備註 / 匯款帳號後五碼（選填）</span>
+                    <input type="text" value={repairNotes}
                     onChange={e => setRepairNotes(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  </label>
                   {repairFormStatus === 'error' && (
                     <div role="alert" className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm">
                       <AlertCircle className="w-4 h-4" aria-hidden="true" /> 提交失敗，請稍後再試。
@@ -3319,33 +3397,41 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">大德姓名 *</span>
+                          <input
                           required
                           type="text"
-                          placeholder="大德姓名 *" aria-label="大德姓名"
                           value={p.name}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
-                        <input
+                        </label>
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">捐款金額（NTD）*</span>
+                          <input
                           required
                           type="number"
-                          placeholder="捐款金額 (NTD) *" aria-label="捐款金額 (NTD)"
                           min="1"
                           value={p.amount || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
-                        <select
+                        </label>
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">捐款類別 *</span>
+                          <select
                           required
-                          aria-label="捐款類別"
                           value={p.type}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
                         >
                           {donationTypes.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <select aria-label="性別"
+                        </label>
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
+                          <select
                           value={p.gender || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
@@ -3353,13 +3439,16 @@ const App: React.FC = () => {
                           <option value="">性別（選填）</option>
                           {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
-                        <input
+                        </label>
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">現居地址（選填）</span>
+                          <input
                           type="text"
-                          placeholder="現居地址（可選）" aria-label="現居地址（可選）"
                           value={p.address}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="sm:col-span-2 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
+                        </label>
                       </div>
                     </div>
                   ))}
@@ -3374,9 +3463,12 @@ const App: React.FC = () => {
                   {!member && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
-                        placeholder="請留下方便聯繫的電話" aria-label="請留下方便聯繫的電話"
+                      <label className="block">
+                        <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                        placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                      </label>
                     </div>
                   )}
 
@@ -3857,8 +3949,7 @@ const App: React.FC = () => {
                 <h2 id="admin-login-title" className="text-white text-lg font-bold font-serif tracking-wide">管理員登入</h2>
               </div>
               <button
-                onClick={handleCloseLoginModal}
-                aria-label="關閉管理員登入"
+                onClick={handleCloseLoginModal} aria-label="關閉管理員登入"
                 className="text-white/70 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
