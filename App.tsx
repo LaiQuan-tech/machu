@@ -2112,7 +2112,20 @@ const App: React.FC = () => {
             {/* 農曆七月的慣例。用金色與較窄的行寬與上一句拉開，
                 這是「會影響能不能報名」的資訊，不是補充說明。 */}
             <p className="text-temple-gold font-medium max-w-xl mx-auto mt-3">
-              傳統上農曆七月不問事，如有緊急事件，請聯繫我們，謝謝
+              傳統上農曆七月不問事，如有緊急事件，
+              {/* 「請聯繫我們」做成 LINE 連結：真的有急事的人不該還要自己捲到頁尾找電話。
+                  用 LINE 而不是電話，是因為那是廟方實際在看的管道，而且桌機也能用；
+                  導流統計標記成 booking-lunar7，才看得出這一行有沒有真的帶來聯繫。 */}
+              <a
+                href={getLineUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackLine('booking-lunar7')}
+                className="underline underline-offset-4 hover:text-white transition-colors"
+              >
+                請聯繫我們
+              </a>
+              ，謝謝
             </p>
           </div>
 
