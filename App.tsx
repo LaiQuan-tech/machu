@@ -2109,6 +2109,11 @@ const App: React.FC = () => {
             <p className="text-red-100 max-w-2xl mx-auto">
               請填寫下方資料，我們將儘速為您安排問事時間。
             </p>
+            {/* 農曆七月的慣例。用金色與較窄的行寬與上一句拉開，
+                這是「會影響能不能報名」的資訊，不是補充說明。 */}
+            <p className="text-temple-gold font-medium max-w-xl mx-auto mt-3">
+              傳統上農曆七月不問事，如有緊急事件，請聯繫我們，謝謝
+            </p>
           </div>
 
           {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'booking' && (
