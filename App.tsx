@@ -1438,13 +1438,50 @@ const App: React.FC = () => {
                 )}
               </div>
 
+              {/*
+                社群圖示。後台留空的平台不會渲染（visibleSocials），所以這裡的數量
+                會隨設定變動——不要假設固定幾個而寫死寬度。
+                LINE 雖然左下角已有浮動鈕，仍然列出：那顆在首頁 Hero 期間是隱藏的，
+                導覽列這組剛好補上那段空窗。
+              */}
+              <div className="flex items-center gap-0.5">
+                {visibleSocials(social).map(({ key, label, url, Icon }) => (
+                  <a
+                    key={key}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={key === 'lineUrl' ? () => trackLine('nav') : undefined}
+                    aria-label={label}
+                    title={label}
+                    className={`p-2 rounded-full transition-colors ${
+                      navOverHero
+                        ? 'text-white/85 hover:text-white hover:bg-white/15'
+                        : 'text-[#7C5C1E] hover:text-temple-red hover:bg-temple-gold/15'
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                  </a>
+                ))}
+              </div>
+
               <div className={`w-px h-6 mx-1 ${navOverHero ? 'bg-white/25' : 'bg-[#3D2800]/20'}`} />
+              {/*
+                會員入口降級成外框鈕。原本是紅底實心的大按鈕，視覺權重高過「預約問事」
+                這種真正想推的動作——但它不能拿掉：登入後這裡是「會員中心」，
+                裡面有報名紀錄與親友通訊錄，而其他登入入口全部藏在表單內部，
+                拿掉的話已註冊的信眾得先假裝要報名才找得到自己的紀錄。
+              */}
               <button
                 onClick={() => setShowMemberPortal(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-temple-red text-white shadow-md hover:bg-[#5C1A04] hover:shadow-lg hover:scale-105 transition-all duration-200"
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors ${
+                  navOverHero
+                    ? 'border-white/40 text-white hover:bg-white/10'
+                    : 'border-temple-gold/70 text-[#7C5C1E] hover:bg-temple-gold/10 hover:border-temple-gold'
+                }`}
               >
-                <UserIcon className="w-4 h-4" />
-                {member ? '會員中心' : '登入 / 註冊'}
+                <UserIcon className="w-4 h-4" aria-hidden="true" />
+                {member ? '會員中心' : '登入'}
               </button>
             </div>
 
