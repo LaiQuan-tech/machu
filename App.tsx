@@ -1543,9 +1543,36 @@ const App: React.FC = () => {
               onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
               className="w-full px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-gold/50 hover:bg-temple-gold/10 flex items-center gap-2"
             >
-              <UserIcon className="w-5 h-5" />
+              <UserIcon className="w-5 h-5" aria-hidden="true" />
               {member ? '會員中心' : '會員登入'}
             </button>
+
+            {/*
+              社群：手機選單原本沒有，等於桌機看得到、手機看不到。
+              放在最下方而不是最上方——進選單的人是要去某一頁，社群是順手才點的。
+              圖示做成 44px 的方塊（比 WCAG 的 24px 寬鬆）：手機選單是拇指操作，
+              而且這幾個圖示彼此相鄰，太小容易點錯隔壁那個。
+            */}
+            {visibleSocials(social).length > 0 && (
+              <>
+                <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
+                <div className="flex items-center justify-center gap-2 pt-1 pb-1">
+                  {visibleSocials(social).map(({ key, label, url, Icon }) => (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => { if (key === 'lineUrl') trackLine('mobile-menu'); setIsMenuOpen(false); }}
+                      aria-label={label}
+                      className="w-11 h-11 flex items-center justify-center rounded-full text-[#7C5C1E] border border-[#C49820]/40 hover:bg-[#C49820]/15 hover:text-temple-red transition-colors"
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </nav>
