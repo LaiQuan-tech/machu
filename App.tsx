@@ -1506,6 +1506,31 @@ const App: React.FC = () => {
             原本固定的 max-h-[500px] 會把最後幾項（聖母經、會員登入）裁掉。 */}
         <div id="mobile-navigation" className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1 max-h-[80vh] overflow-y-auto">
+            {/*
+              社群：對應桌機導覽列右側的位置。放在選單最上方（廟方指定）。
+              圖示做成 44px 的方塊（比 WCAG 的 24px 寬鬆）：手機選單是拇指操作，
+              而且這幾個圖示彼此相鄰，太小容易點錯隔壁那個。
+            */}
+            {visibleSocials(social).length > 0 && (
+              <>
+                <div className="flex items-center justify-center gap-2 pb-1">
+                  {visibleSocials(social).map(({ key, label, url, Icon }) => (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => { if (key === 'lineUrl') trackLine('mobile-menu'); setIsMenuOpen(false); }}
+                      aria-label={label}
+                      className="w-11 h-11 flex items-center justify-center rounded-full text-[#7C5C1E] border border-[#C49820]/40 hover:bg-[#C49820]/15 hover:text-temple-red transition-colors"
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  ))}
+                </div>
+                <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
+              </>
+            )}
             {NAV_PRIMARY.map((item) => (
               <button
                 key={item.id}
@@ -1547,32 +1572,7 @@ const App: React.FC = () => {
               {member ? '會員中心' : '會員登入'}
             </button>
 
-            {/*
-              社群：手機選單原本沒有，等於桌機看得到、手機看不到。
-              放在最下方而不是最上方——進選單的人是要去某一頁，社群是順手才點的。
-              圖示做成 44px 的方塊（比 WCAG 的 24px 寬鬆）：手機選單是拇指操作，
-              而且這幾個圖示彼此相鄰，太小容易點錯隔壁那個。
-            */}
-            {visibleSocials(social).length > 0 && (
-              <>
-                <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
-                <div className="flex items-center justify-center gap-2 pt-1 pb-1">
-                  {visibleSocials(social).map(({ key, label, url, Icon }) => (
-                    <a
-                      key={key}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => { if (key === 'lineUrl') trackLine('mobile-menu'); setIsMenuOpen(false); }}
-                      aria-label={label}
-                      className="w-11 h-11 flex items-center justify-center rounded-full text-[#7C5C1E] border border-[#C49820]/40 hover:bg-[#C49820]/15 hover:text-temple-red transition-colors"
-                    >
-                      <Icon className="w-5 h-5" />
-                    </a>
-                  ))}
-                </div>
-              </>
-            )}
+
           </div>
         </div>
       </nav>
@@ -2247,7 +2247,7 @@ const App: React.FC = () => {
                             <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
                             <select value={p.gender || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             <option value="">性別（選填）</option>
                             {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
@@ -2256,7 +2256,7 @@ const App: React.FC = () => {
                             <span className="block text-xs font-medium text-gray-600 mb-1">問事類型 *</span>
                             <select required value={p.type}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                           </label>
@@ -2928,7 +2928,7 @@ const App: React.FC = () => {
                                         ...x,
                                         voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: e.target.value ? Number(e.target.value) : 0 }
                                       } : x))}
-                                      className="w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
+                                      className="w-full w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
                                     </label>
                                   </div>
                                 ))}
@@ -3351,11 +3351,11 @@ const App: React.FC = () => {
                 }} className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 sm:p-6 space-y-4">
                   {/* 神尊名稱與大圖已在視窗上方，這裡不重複 */}
                   <div className="flex items-center gap-2">
-                    <label className="block">
+                    <label className="block flex-1">
                       <span className="block text-xs font-medium text-gray-600 mb-1">大德姓名 *</span>
                       <input required type="text" value={repairName}
                       onChange={e => setRepairName(e.target.value)}
-                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                     </label>
                     <button type="button" onClick={() => handleOpenContactPicker('repair', '__repair__')}
                       className="flex items-center gap-1 text-xs px-2.5 py-2 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all shrink-0">
@@ -3486,7 +3486,7 @@ const App: React.FC = () => {
                           type="text"
                           value={p.name}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                         </label>
                         <label className="block">
@@ -3497,7 +3497,7 @@ const App: React.FC = () => {
                           min="1"
                           value={p.amount || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                         </label>
                         <label className="block">
@@ -3506,7 +3506,7 @@ const App: React.FC = () => {
                           required
                           value={p.type}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
                         >
                           {donationTypes.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -3516,19 +3516,19 @@ const App: React.FC = () => {
                           <select
                           value={p.gender || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
                         >
                           <option value="">性別（選填）</option>
                           {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                         </label>
-                        <label className="block">
+                        <label className="block sm:col-span-2">
                           <span className="block text-xs font-medium text-gray-600 mb-1">現居地址（選填）</span>
                           <input
                           type="text"
                           value={p.address}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="sm:col-span-2 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                         </label>
                       </div>
