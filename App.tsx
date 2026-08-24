@@ -135,6 +135,13 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
  */
 const ENABLE_REPAIR = false;
 
+/**
+ * 公佈欄（首頁「最新活動」區塊）暫時對外隱藏（廟方要求）。
+ * 改回 true 就整組恢復：導覽列項目、首頁區塊、捲動高亮、祈福活動頁的「查看最新公告」。
+ * 後台的「公佈欄管理」不受影響——內容照樣可以維護，只是前台先不露出。
+ */
+const ENABLE_BULLETIN = false;
+
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 
 const pageFromPath = (): SitePage => {
@@ -184,7 +191,9 @@ function fillEmptyFields<T extends Record<string, unknown>>(entry: T, defaults: 
 
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
-  { id: 'bulletin', label: '最新活動', kind: 'section' },
+  // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
+  ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
+
   { id: 'about', label: '關於我們', kind: 'section' },
   { id: 'deities', label: '祀奉神尊', kind: 'section' },
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
@@ -765,7 +774,7 @@ const App: React.FC = () => {
       // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進隨喜捐獻。
       const pairs: [string, string][] = [
         ['faq', 'faq'], ['donation', 'donation'], ['relocation-intro', 'relocation'], ['deities', 'deities'],
-        ['about', 'about'], ['bulletin', 'bulletin'], ['home', 'home'],
+        ['about', 'about'], ['home', 'home'],
       ];
       for (const [id, navId] of pairs) {
         const el = document.getElementById(id);
@@ -1690,7 +1699,8 @@ const App: React.FC = () => {
         <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-b from-transparent to-temple-bg pointer-events-none" />
       </section>
 
-{/* Bulletin Section (公佈欄) */}
+{/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
+      {ENABLE_BULLETIN && (
       <section id="bulletin" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="sr sr-up text-center mb-12">
@@ -1828,6 +1838,7 @@ const App: React.FC = () => {
           )}
         </div>
       </section>
+      )}
 
 {/* About Section */}
       <section id="about" className="py-20 bg-temple-bg relative">
@@ -2662,10 +2673,13 @@ const App: React.FC = () => {
           {blessingEvents.length === 0 ? (
             <div className="text-center text-gray-400 py-12 text-sm space-y-2">
               <p>目前暫無其他祈福活動</p>
-              <button onClick={() => scrollToSection('bulletin')}
-                className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto">
-                查看最新公告 →
-              </button>
+              {/* 公佈欄關閉時不要留這顆——它會捲到一個不存在的區塊，等於按了沒反應 */}
+              {ENABLE_BULLETIN && (
+                <button onClick={() => scrollToSection('bulletin')}
+                  className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto">
+                  查看最新公告 →
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-5">
