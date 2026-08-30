@@ -16,7 +16,7 @@ import {
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
-  Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
+  Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
   Eye, EyeOff, ShoppingBag, Wrench
@@ -332,22 +332,28 @@ function useDragSort<T extends { id: string }>(
     e.preventDefault();
     setOverIndex(idx);
   };
-  const onDrop = async (dropIdx: number) => {
-    const fromIdx = dragIndexRef.current;
-    setDraggingId(null);
-    setOverIndex(null);
-    if (fromIdx === dropIdx || fromIdx < 0) return;
+  /** 重排並寫回。拖拉放開與手機的上下鍵都走這一支，不要各寫一份。 */
+  const applyOrder = async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || toIdx >= localItems.length) return;
     const next = [...localItems];
     const [moved] = next.splice(fromIdx, 1);
-    next.splice(dropIdx, 0, moved);
+    next.splice(toIdx, 0, moved);
     setLocalItems(next);
     setIsSaving(true);
     try { await onSaveOrder(next); } catch { alert('排序儲存失敗'); }
     finally { setIsSaving(false); }
   };
+  const onDrop = async (dropIdx: number) => {
+    const fromIdx = dragIndexRef.current;
+    setDraggingId(null);
+    setOverIndex(null);
+    await applyOrder(fromIdx, dropIdx);
+  };
   const onDragEnd = () => { setDraggingId(null); setOverIndex(null); };
+  /** 觸控裝置不會觸發 HTML5 的 drag 事件，手機上一律用這支搬移。 */
+  const move = (idx: number, dir: -1 | 1) => applyOrder(idx, idx + dir);
 
-  return { localItems, draggingId, overIndex, isSaving, onDragStart, onDragOver, onDrop, onDragEnd };
+  return { localItems, draggingId, overIndex, isSaving, onDragStart, onDragOver, onDrop, onDragEnd, move };
 }
 
 // ─── Fahui (法會報名) Tab ──────────────────────────────────────────────────────
@@ -403,7 +409,7 @@ const DateRangeFilter = ({ from, to, onFrom, onTo }: { from: string; to: string;
 /** 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開，人才判斷得出是不是同一個人 */
 const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
   <div className="overflow-x-auto rounded-lg border border-gray-200">
-    <table className="w-full text-xs">
+    <table className="admin-table w-full text-xs">
       <thead className="bg-gray-50 text-gray-500">
         <tr>
           {['日期', '管道', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
@@ -414,16 +420,16 @@ const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
       <tbody className="divide-y divide-gray-100">
         {records.map((rec, i) => (
           <tr key={i} className="hover:bg-gray-50/60">
-            <td className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
-            <td className="px-2.5 py-2 whitespace-nowrap">
+            <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
+            <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
               <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
             </td>
-            <td className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
-            <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>
-            <td className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || '—'}</td>
-            <td className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || '—'}</td>
-            <td className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || '—'}</td>
-            <td className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : '—'}</td>
+            <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
+            <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>
+            <td data-label="生肖" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || '—'}</td>
+            <td data-label="電話" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || '—'}</td>
+            <td data-label="地址" className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || '—'}</td>
+            <td data-label="金額" className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -656,7 +662,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
         <div className="text-center text-gray-400 py-20">尚無符合條件的信眾</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="admin-table w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
@@ -673,7 +679,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
             <tbody className="divide-y divide-gray-100">
               {filtered.map(r => (
                 <tr key={r.name} className="hover:bg-gray-50/60">
-                  <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
+                  <td data-label="姓名" className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                     {r.name}
                     {/* 有會員編號＝此人同時是註冊會員，可回「會員資訊」看登入紀錄 */}
                     {r.memberNumbers.length > 0 && (
@@ -689,10 +695,10 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || '—'}</td>
-                  <td className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
-                  <td className="px-4 py-3">
+                  <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
+                  <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || '—'}</td>
+                  <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
+                  <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {ROSTER_SOURCES.filter(s => r.counts[s]).map(s => (
                         <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap">
@@ -701,14 +707,14 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
+                  <td data-label="累計金額" className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
                     {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
-                  <td className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
+                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
+                  <td data-label="可能親屬" className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
                     {r.relatives.join('、') || '—'}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td data-label="校正" className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       {mergeFrom ? (
                         mergeFrom === r.name
@@ -1939,7 +1945,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
+            <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
                   {['信眾資訊', '預約時間 / 項目', '備註', '神明的話', '狀態', '操作'].map(h => (
@@ -1953,7 +1959,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     className="hover:bg-blue-50/40 transition-colors cursor-pointer"
                     onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel })}
                   >
-                    <td className="px-5 py-4">
+                    <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
                           <User className="w-4 h-4 text-temple-red" />
@@ -1970,18 +1976,18 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td data-label="預約時間 / 項目" className="px-5 py-4">
                       <p className="text-sm text-gray-800 flex items-center gap-1.5 mb-1"><Calendar className="w-3.5 h-3.5 text-gray-400" />{b.bookingDate}</p>
                       <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-2"><Clock className="w-3.5 h-3.5 text-gray-400" />
                         {b.bookingTime === 'evening' ? '晚上 (19:00-21:00)' : b.bookingTime}
                       </p>
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span>
                     </td>
-                    <td className="px-5 py-4 max-w-[180px]">
+                    <td data-label="備註" className="px-5 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{b.notes || <span className="text-gray-300 italic">無備註</span>}</p>
                       <p className="text-xs text-gray-400 mt-1">{fmtDate(b.createdAt)}</p>
                     </td>
-                    <td className="px-5 py-4 max-w-[160px]" onClick={e => e.stopPropagation()}>
+                    <td data-label="神明的話" className="px-5 py-4 max-w-[160px]" onClick={e => e.stopPropagation()}>
                       {b.divineMessage
                         ? <p className="text-xs text-amber-800 line-clamp-2 cursor-pointer hover:text-amber-900"
                             onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}>
@@ -1993,8 +1999,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                           </button>
                       }
                     </td>
-                    <td className="px-5 py-4">{statusBadge(b.status)}</td>
-                    <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                    <td data-label="狀態" className="px-5 py-4">{statusBadge(b.status)}</td>
+                    <td data-label="操作" className="px-5 py-4" onClick={e => e.stopPropagation()}>
                       <select value={b.status || BookingStatus.PENDING}
                         onChange={e => onStatusChange(b.id, e.target.value as BookingStatus)}
                         disabled={updatingId === b.id}
@@ -2015,7 +2021,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       {/* 神明的話 編輯 Modal */}
       {divineEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDivineEdit(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <span className="text-temple-gold text-lg">✦</span> 神明的話
@@ -2126,7 +2132,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
+            <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
                   {['信眾資訊', '捐款金額', '類型', '修復神尊', '備註', '時間'].map(h => (
@@ -2140,7 +2146,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     className="hover:bg-green-50/40 transition-colors cursor-pointer"
                     onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel })}
                   >
-                    <td className="px-5 py-4">
+                    <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center shrink-0">
                           <HeartHandshake className="w-4 h-4 text-green-600" />
@@ -2156,23 +2162,23 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td data-label="捐款金額" className="px-5 py-4">
                       <p className="text-base font-bold text-green-700">NT$ {Number(d.amount).toLocaleString()}</p>
                     </td>
-                    <td className="px-5 py-4">
+                    <td data-label="類型" className="px-5 py-4">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td data-label="修復神尊" className="px-4 py-3 text-sm text-gray-500">
                       {d.repairProjectName
                         ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
                             <Wrench className="w-3 h-3" />{d.repairProjectName}
                           </span>
                         : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-5 py-4 max-w-[180px]">
+                    <td data-label="備註" className="px-5 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{d.notes || <span className="text-gray-300 italic">無備註</span>}</p>
                     </td>
-                    <td className="px-5 py-4">
+                    <td data-label="時間" className="px-5 py-4">
                       <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
                     </td>
                   </tr>
@@ -2314,7 +2320,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
         {/* 親友詳情 Modal */}
         {selectedContact && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedContact(null)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
                   <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{selectedContact.label}</span>
@@ -2567,7 +2573,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
             <h3 className="font-semibold text-temple-dark text-sm">已註冊會員帳號</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
+            <table className="admin-table w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">編號</th>
@@ -2591,42 +2597,42 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                     }}
                     className="cursor-pointer hover:bg-temple-bg/60 transition-all group"
                   >
-                    <td className="px-4 py-3">
+                    <td data-label="編號" className="px-4 py-3">
                       <span className="text-xs font-mono text-gray-400">
                         {p.memberNumber ? `#${String(p.memberNumber).padStart(3, '0')}` : '—'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="姓名" className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
                         {p.name || <span className="text-gray-400 font-normal italic">（未填）</span>}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="性別" className="px-4 py-3">
                       {p.gender
                         ? <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full">{p.gender}</span>
                         : <span className="text-gray-300 text-xs">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="點燈" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-amber-700 text-sm font-medium">
                         <Flame className="w-3.5 h-3.5" />{p.stats.lamps}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="祈福" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-blue-700 text-sm font-medium">
                         <Sparkles className="w-3.5 h-3.5" />{p.stats.activities}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-sm">
+                    <td data-label="捐獻" className="px-4 py-3 text-right text-sm">
                       {p.stats.donation > 0
                         ? <span className="text-green-700 font-medium">NT${p.stats.donation.toLocaleString()}</span>
                         : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="問事" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
                         <BookOpen className="w-3.5 h-3.5" />{p.stats.bookingCount}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                    <td data-label="最後登入" className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
                       {p.lastLogin
                         ? new Date(p.lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
                         : <span className="text-gray-300">—</span>}
@@ -2974,7 +2980,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="admin-table w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-5 py-3 text-left">標題</th>
@@ -2990,7 +2996,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
               <tr><td colSpan={6} className="text-center py-12 text-gray-400">尚無公告</td></tr>
             ) : paged.map(b => (
               <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-5 py-4 font-medium text-gray-800">
+                <td data-label="標題" className="px-5 py-4 font-medium text-gray-800">
                   <div className="flex items-center gap-3">
                     {b.imageUrl && (
                       <img src={b.imageUrl} alt="" className="w-12 h-9 object-cover rounded-md border border-gray-200 shrink-0" />
@@ -2998,20 +3004,20 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     <span>{b.title}</span>
                   </div>
                 </td>
-                <td className="px-5 py-4">
+                <td data-label="分類" className="px-5 py-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>{b.category}</span>
                 </td>
-                <td className="px-5 py-4 text-gray-500">
+                <td data-label="發布狀態" className="px-5 py-4 text-gray-500">
                   {publishStatus(b) ?? <span className="text-xs text-green-600">已發布</span>}
                   <div className="text-xs text-gray-400 mt-0.5">{fmtDate(b.createdAt)}</div>
                 </td>
-                <td className="px-5 py-4 text-center">
+                <td data-label="置頂" className="px-5 py-4 text-center">
                   <button onClick={() => handleTogglePin(b)}
                     className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
                     {b.isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                   </button>
                 </td>
-                <td className="px-5 py-4 text-center">
+                <td data-label="連結服務" className="px-5 py-4 text-center">
                   {b.linkedService ? (
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>
                       {serviceLabel[b.linkedService] ?? b.linkedService}
@@ -3020,7 +3026,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     <span className="text-gray-300 text-xs">—</span>
                   )}
                 </td>
-                <td className="px-5 py-4 text-center">
+                <td data-label="操作" className="px-5 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button onClick={() => openEdit(b)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
                       <Edit2 className="w-4 h-4" />
@@ -3158,7 +3164,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
   // ── Drag sort ──
   const sortedDeities = useMemo(() => [...deities].sort((a, b) => a.displayOrder - b.displayOrder), [deities]);
   const { localItems: localDeities, draggingId: dDragId, overIndex: dOverIdx, isSaving: dSaving,
-          onDragStart: dDragStart, onDragOver: dDragOver, onDrop: dDrop, onDragEnd: dDragEnd,
+          onDragStart: dDragStart, onDragOver: dDragOver, onDrop: dDrop, onDragEnd: dDragEnd, move: dMove,
   } = useDragSort(sortedDeities, async (sorted) => {
     await Promise.all(sorted.map((d, i) => updateDeity(d.id, { displayOrder: i + 1 })));
     onRefresh();
@@ -3327,7 +3333,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {dSaving && <div className="px-6 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
-        <table className="w-full text-sm">
+        <table className="admin-table w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-3 w-8"></th>
@@ -3348,8 +3354,21 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                 onDrop={() => dDrop(idx)}
                 onDragEnd={dDragEnd}
                 className={`transition-colors select-none ${!d.isVisible ? 'opacity-50' : ''} ${dDragId === d.id ? 'opacity-30 bg-gray-50' : ''} ${dOverIdx === idx && dDragId !== d.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50'}`}>
-                <td className="px-3 py-4 text-gray-300 cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></td>
-                <td className="px-6 py-4">
+                <td className="px-3 py-4 text-gray-300 lg:cursor-grab lg:active:cursor-grabbing">
+                  <GripVertical className="w-4 h-4 hidden lg:block" />
+                  {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
+                  <div className="flex items-center gap-1 lg:hidden">
+                    <button type="button" onClick={() => dMove(idx, -1)} disabled={idx === 0}
+                      className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => dMove(idx, 1)} disabled={idx === localDeities.length - 1}
+                      className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+                <td data-label="圖片" className="px-6 py-4">
                   {/* 直式縮圖：神尊立像是直的，正方形會把頭冠與衣袍下擺切掉 */}
                   {d.imagePath ? (
                     <img src={getSiteImagePublicUrl(d.imagePath)} alt={d.name} className="w-12 h-16 rounded-lg object-cover" />
@@ -3357,16 +3376,16 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                     <div className="w-12 h-16 rounded-lg bg-gray-100 flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>
                   )}
                 </td>
-                <td className="px-6 py-4 font-medium text-gray-800">
+                <td data-label="名稱" className="px-6 py-4 font-medium text-gray-800">
                   {d.name}
                   {!d.isVisible && <span className="ml-2 text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">已隱藏</span>}
                 </td>
-                <td className="px-6 py-4 text-gray-500">
+                <td data-label="殿" className="px-6 py-4 text-gray-500">
                   {d.hallId ? (halls.find(h => h.id === d.hallId)?.name ?? '-') : '-'}
                 </td>
-                <td className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
-                <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
-                <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                <td data-label="尊稱" className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
+                <td data-label="介紹" className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
+                <td data-label="操作" className="px-6 py-4 text-right flex items-center justify-end gap-3">
                   <button onClick={() => handleToggleVisible(d)} disabled={togglingId === d.id}
                     title={d.isVisible ? '點擊隱藏' : '點擊顯示'}
                     className={`transition-colors disabled:opacity-40 ${d.isVisible ? 'text-gray-400 hover:text-orange-500' : 'text-orange-500 hover:text-gray-400'}`}>
@@ -3842,7 +3861,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="admin-table w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
@@ -3854,7 +3873,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
           <tbody className="divide-y divide-gray-50">
             {paged.map(v => (
               <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-4 py-3">
+                <td data-label="插圖" className="px-4 py-3">
                   {v.imagePath ? (
                     <img
                       src={getImageUrl(v.imagePath)!}
@@ -3868,13 +3887,13 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-700 max-w-[200px]">
+                <td data-label="經文" className="px-4 py-3 text-gray-700 max-w-[200px]">
                   <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-500 max-w-[300px]">
+                <td data-label="註解" className="px-4 py-3 text-gray-500 max-w-[300px]">
                   <p className="truncate">{v.annotation.substring(0, 50)}...</p>
                 </td>
-                <td className="px-4 py-3 text-center">
+                <td data-label="操作" className="px-4 py-3 text-center">
                   <button
                     onClick={() => openEdit(v)}
                     className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
@@ -4032,7 +4051,7 @@ const LampsTab = ({
   // ── Drag sort for configs ──
   const sortedConfigs = useMemo(() => [...configs].sort((a, b) => a.displayOrder - b.displayOrder), [configs]);
   const { localItems: localConfigs, draggingId: cDragId, overIndex: cOverIdx, isSaving: cSaving,
-          onDragStart: cDragStart, onDragOver: cDragOver, onDrop: cDrop, onDragEnd: cDragEnd,
+          onDragStart: cDragStart, onDragOver: cDragOver, onDrop: cDrop, onDragEnd: cDragEnd, move: cMove,
   } = useDragSort(sortedConfigs, async (sorted) => {
     await Promise.all(sorted.map((c, i) => updateLampServiceConfig(c.id, { displayOrder: i + 1 })));
     onRefresh();
@@ -4200,7 +4219,7 @@ const LampsTab = ({
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             {cSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-3 w-8"></th>
@@ -4221,13 +4240,26 @@ const LampsTab = ({
                     onDrop={() => cDrop(idx)}
                     onDragEnd={cDragEnd}
                     className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}`}>
-                    <td className="px-3 py-3 text-gray-300 cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 text-gray-300 lg:cursor-grab lg:active:cursor-grabbing">
+                      <GripVertical className="w-4 h-4 hidden lg:block" />
+                      {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
+                      <div className="flex items-center gap-1 lg:hidden">
+                        <button type="button" onClick={() => cMove(idx, -1)} disabled={idx === 0}
+                          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => cMove(idx, 1)} disabled={idx === localConfigs.length - 1}
+                          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td data-label="圖片" className="px-4 py-3">
                       {c.imageUrl
                         ? <img src={c.imageUrl} alt={c.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
                         : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center"><Flame className="w-4 h-4 text-gray-300" /></div>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="啟用" className="px-4 py-3">
                       <button
                         onClick={() => handleToggleActive(c)}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${c.isActive ? 'bg-green-500' : 'bg-gray-300'}`}
@@ -4235,12 +4267,12 @@ const LampsTab = ({
                         <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${c.isActive ? 'translate-x-4' : 'translate-x-1'}`} />
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{c.name}</td>
-                    <td className="px-4 py-3 text-temple-red font-semibold">NT$ {c.fee.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-500 max-w-xs">
+                    <td data-label="服務名稱" className="px-4 py-3 font-medium text-gray-800">{c.name}</td>
+                    <td data-label="費用" className="px-4 py-3 text-temple-red font-semibold">NT$ {c.fee.toLocaleString()}</td>
+                    <td data-label="說明" className="px-4 py-3 text-gray-500 max-w-xs">
                       <p className="truncate">{c.description}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="操作" className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => openEditConfig(c)}
@@ -4378,7 +4410,7 @@ const LampsTab = ({
       {/* ── Config Modal ── */}
       {showConfigModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowConfigModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-800">{editingConfig ? '編輯服務項目' : '新增服務項目'}</h3>
               <button onClick={() => setShowConfigModal(false)} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
@@ -4513,7 +4545,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
   // ── Drag sort for events ──
   const sortedEvents = useMemo(() => [...events].sort((a, b) => a.sortOrder - b.sortOrder), [events]);
   const { localItems: localEvents, draggingId: eDragId, overIndex: eOverIdx, isSaving: eSaving,
-          onDragStart: eDragStart, onDragOver: eDragOver, onDrop: eDrop, onDragEnd: eDragEnd,
+          onDragStart: eDragStart, onDragOver: eDragOver, onDrop: eDrop, onDragEnd: eDragEnd, move: eMove,
   } = useDragSort(sortedEvents, async (sorted) => {
     await Promise.all(sorted.map((e, i) => updateBlessingEvent(e.id, { sortOrder: i + 1 })));
     onRefresh();
@@ -4653,7 +4685,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
             <p className="px-5 py-10 text-center text-sm text-gray-400">尚無報名資料</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px]">
+              <table className="admin-table w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
@@ -4674,12 +4706,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                       className="hover:bg-purple-50/40 transition-colors cursor-pointer"
                       onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt })}
                     >
-                      <td className="px-4 py-3">
+                      <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td data-label="電話" className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
+                      <td data-label="方案" className="px-4 py-3 text-sm text-gray-500">
                         {r.packageName
                           ? <span className="inline-flex flex-col gap-0.5">
                               <span className="text-xs font-medium text-temple-red">{r.packageName}</span>
@@ -4687,7 +4719,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                             </span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
+                      <td data-label="加購" className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
                         {r.selectedAddons && r.selectedAddons.length > 0 && (
                           <span className="text-xs leading-relaxed">
                             {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
@@ -4706,21 +4738,21 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                           <span className="text-gray-300">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td data-label="生日 / 生肖" className="px-4 py-3 text-sm text-gray-500">
                         {r.birthDate && <p>{r.birthDate}</p>}
                         {r.zodiac && <p className="text-xs">{r.zodiac}年</p>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <td data-label="地址" className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
+                      <td data-label="備註" className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
+                      <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <select value={r.status} disabled={updatingRegId === r.id}
                           onChange={e => handleRegStatus(r.id, e.target.value as BlessingStatus)}
                           className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-temple-red">
                           {Object.values(BlessingStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
-                      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
+                      <td data-label="報名時間" className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                      <td data-label="操作" className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
                           className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40">
                           <Trash2 className="w-4 h-4" />
@@ -5028,7 +5060,18 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                 onDrop={() => eDrop(idx)}
                 onDragEnd={eDragEnd}
                 className={`bg-white rounded-xl border shadow-sm p-5 flex flex-wrap items-center gap-4 select-none transition-all ${eDragId === e.id ? 'opacity-30' : ''} ${eOverIdx === idx && eDragId !== e.id ? 'border-temple-red border-2' : 'border-gray-100'}`}>
-                <GripVertical className="w-5 h-5 text-gray-300 cursor-grab active:cursor-grabbing shrink-0" />
+                <GripVertical className="w-5 h-5 text-gray-300 cursor-grab active:cursor-grabbing shrink-0 hidden lg:block" />
+                {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
+                <div className="flex items-center gap-1 lg:hidden shrink-0">
+                  <button type="button" onClick={() => eMove(idx, -1)} disabled={idx === 0}
+                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => eMove(idx, 1)} disabled={idx === localEvents.length - 1}
+                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
                 {e.imageUrl
                   ? <img src={e.imageUrl} alt={e.title} className="w-14 h-14 object-cover rounded-xl border border-gray-100 shrink-0" />
                   : <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5 text-temple-red" /></div>}
@@ -5423,7 +5466,7 @@ const ReceivablesTab: React.FC<{
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
                 {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員'].map(h => (
@@ -5438,14 +5481,14 @@ const ReceivablesTab: React.FC<{
                 const member = findMember(row.phone);
                 return (
                   <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
-                    <td className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
-                    <td className="px-5 py-3 text-gray-500">{row.phone}</td>
-                    <td className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
-                    <td className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
-                    <td className="px-5 py-3">{statusBadge(row.status)}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
+                    <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
+                    <td data-label="電話" className="px-5 py-3 text-gray-500">{row.phone}</td>
+                    <td data-label="類型" className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
+                    <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
+                    <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
+                    <td data-label="狀態" className="px-5 py-3">{statusBadge(row.status)}</td>
+                    <td data-label="會員" className="px-5 py-3">
                       {member ? (
                         <button onClick={() => setSelectedMember(member)}
                           className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
@@ -5476,7 +5519,7 @@ const ReceivablesTab: React.FC<{
       {selectedMember && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedMember(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -5515,6 +5558,8 @@ const ReceivablesTab: React.FC<{
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [tab, setTab] = useState<Tab>(role === 'finance' ? 'receivables' : 'overview');
+  /** 手機側邊欄抽屜。桌機（lg 以上）常駐，這個狀態不影響桌機。 */
+  const [navOpen, setNavOpen] = useState(false);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
@@ -5616,44 +5661,120 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const allowed = ROLE_ALLOWED_TABS[role];
   const navItems = allNavItems.filter(n => allowed.includes(n.key));
 
+  /** 各分頁的待辦數字。抽屜收起時漢堡鈕要靠總和顯示紅點，所以從 nav 內部抽出來共用。 */
+  const badgeFor = (key: Tab): number =>
+      key === 'lamps'     ? lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length
+    : key === 'fahui'     ? fahuiRegistrations.filter(r => r.status === 'pending').length
+    : key === 'volunteer' ? volunteerRegistrations.filter(r => r.status !== 'contacted').length
+    : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length
+    : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
+    : key === 'donations' ? donations.filter(d => d.createdAt && (Date.now() - new Date(d.createdAt).getTime()) < 86400000).length
+    : 0;
+  const totalPending = navItems.reduce((sum, n) => sum + badgeFor(n.key), 0);
+
+  /**
+   * 側邊欄分組。
+   *
+   * 21 個分頁平鋪在手機抽屜裡等於要一直捲才找得到東西（實測回報）。分組之後
+   * 手機只展開「常用」，其餘收起，一眼看得完。
+   *
+   * 「常用」＝手機上真的會用的：有待辦徽章的六個，加上總覽。後台不該、也不會
+   * 在手機上做完所有事（改文案、傳照片、設追蹤碼那些本來就該在電腦上做），
+   * 所以目標不是每個分頁都好按，是**該在手機上處理的那幾個好按，其餘進得去就好**。
+   *
+   * 桌機完全不受影響：收合鈕的箭頭是 lg:hidden，內容用 `hidden lg:block`，
+   * 所以 lg 以上永遠是展開的一整份清單，只是多了四個小標題。
+   */
+  const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
+    { title: '常用',       keys: ['overview', 'fahui', 'volunteer', 'bookings', 'lamps', 'blessings', 'donations'] },
+    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'repairs'] },
+    { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'photos', 'scripture'] },
+    { title: '系統設定',   keys: ['siteinfo', 'analytics', 'social'] },
+  ];
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const groupedKeys = NAV_GROUPS.reduce<Tab[]>((all, g) => all.concat(g.keys), []);
+  // 日後新增分頁若忘了歸類，讓它落到最後一組，不要從選單裡靜默消失
+  const ungrouped = navItems.filter(n => groupedKeys.indexOf(n.key) < 0);
+  const navGroups = NAV_GROUPS
+    .map((g, i) => ({
+      title: g.title,
+      items: navItems.filter(n => g.keys.indexOf(n.key) >= 0)
+        .concat(i === NAV_GROUPS.length - 1 ? ungrouped : []),
+    }))
+    .filter(g => g.items.length > 0);
+
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans">
-      {/* Sidebar */}
-      <aside className="w-56 bg-temple-dark text-white flex flex-col shrink-0">
-        <div className="px-5 py-6 border-b border-white/10">
-          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">和聖壇</p>
-          <h1 className="text-lg font-bold font-serif">後台管理</h1>
-          <span className={`inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-            role === 'admin'   ? 'bg-temple-red/80 text-white' :
-            role === 'staff'   ? 'bg-blue-500/70 text-white'   :
-                                 'bg-yellow-500/70 text-white'
-          }`}>
-            {ADMIN_ROLE_LABEL[role]}
-          </span>
+      {/* 手機抽屜的遮罩：點一下關閉 */}
+      {navOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setNavOpen(false)} aria-hidden="true" />
+      )}
+
+      {/* Sidebar：lg 以上常駐佔位，以下改成從左滑出的抽屜（fixed，不佔版面寬度） */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-temple-dark text-white flex flex-col transition-transform duration-200 lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 ${
+        navOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="px-5 py-6 border-b border-white/10 flex items-start justify-between gap-2">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">和聖壇</p>
+            <h1 className="text-lg font-bold font-serif">後台管理</h1>
+            <span className={`inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              role === 'admin'   ? 'bg-temple-red/80 text-white' :
+              role === 'staff'   ? 'bg-blue-500/70 text-white'   :
+                                   'bg-yellow-500/70 text-white'
+            }`}>
+              {ADMIN_ROLE_LABEL[role]}
+            </span>
+          </div>
+          <button onClick={() => setNavOpen(false)}
+            className="lg:hidden -mr-2 -mt-1 p-2 rounded-lg text-gray-300 hover:bg-white/10 transition-colors"
+            aria-label="關閉選單">
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ key, label, icon }) => {
-            const badgeCount =
-              key === 'lamps'     ? lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length
-              : key === 'fahui'     ? fahuiRegistrations.filter(r => r.status === 'pending').length
-              : key === 'volunteer' ? volunteerRegistrations.filter(r => r.status !== 'contacted').length
-              : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length
-              : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
-              : key === 'donations' ? donations.filter(d => d.createdAt && (Date.now() - new Date(d.createdAt).getTime()) < 86400000).length
-              : 0;
+        {/* 分組後仍可能超過螢幕高度（桌機是全展開的），這一段要能自己捲 */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+          {navGroups.map(({ title, items }) => {
+            // 沒手動動過的話：「常用」與「正在看的那一組」預設展開
+            const containsActive = items.some(n => n.key === tab);
+            const open = openGroups[title] ?? (title === '常用' || containsActive);
+            const groupBadge = items.reduce((sum, n) => sum + badgeFor(n.key), 0);
             return (
-              <button key={key} onClick={() => setTab(key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  tab === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
-                }`}>
-                {icon}
-                <span className="flex-1 text-left">{label}</span>
-                {badgeCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none shrink-0">
-                    {badgeCount > 9 ? '9+' : badgeCount}
-                  </span>
-                )}
-              </button>
+              <div key={title}>
+                {/* 桌機按下去是無作用的（內容有 lg:block 撐著），所以不必另外擋 */}
+                <button type="button"
+                  onClick={() => setOpenGroups(prev => ({ ...prev, [title]: !open }))}
+                  aria-expanded={open}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-semibold tracking-widest text-gray-400 lg:cursor-default">
+                  <span className="flex-1 text-left">{title}</span>
+                  {!open && groupBadge > 0 && (
+                    <span className="lg:hidden bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                      {groupBadge > 9 ? '9+' : groupBadge}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 lg:hidden transition-transform ${open ? '' : '-rotate-90'}`} />
+                </button>
+                <div className={`space-y-1 ${open ? 'block' : 'hidden lg:block'}`}>
+                  {items.map(({ key, label, icon }) => {
+                    const badgeCount = badgeFor(key);
+                    return (
+                      <button key={key} onClick={() => { setTab(key); setNavOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-lg text-sm transition-colors ${
+                          tab === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
+                        }`}>
+                        {icon}
+                        <span className="flex-1 text-left">{label}</span>
+                        {badgeCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none shrink-0">
+                            {badgeCount > 9 ? '9+' : badgeCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -5669,20 +5790,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-auto">
+      {/* Main：min-w-0 是必要的——flex 子元素預設 min-width:auto，
+          寬表格會把整頁撐寬變成整頁橫捲，而不是捲在表格自己的容器裡 */}
+      <main className="flex-1 min-w-0 overflow-auto">
         {/* Top bar */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <h2 className="font-semibold text-gray-700">
-            {navItems.find(n => n.key === tab)?.label}
-          </h2>
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10">
+          <div className="flex items-center gap-2 min-w-0">
+            <button onClick={() => setNavOpen(true)}
+              className="lg:hidden -ml-2 p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors relative shrink-0"
+              aria-label="開啟選單" aria-expanded={navOpen}>
+              <Menu className="w-5 h-5" />
+              {/* 抽屜收起時看不到各分頁的待辦數字，用一個紅點提示 */}
+              {totalPending > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </button>
+            <h2 className="font-semibold text-gray-700 truncate">
+              {navItems.find(n => n.key === tab)?.label}
+            </h2>
+          </div>
           <button onClick={() => fetchAll(false)} disabled={refreshing}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> 重新整理
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50 shrink-0 p-2 -mr-2">
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">重新整理</span>
           </button>
         </div>
 
-        <div className="px-8 py-6">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-64 text-gray-400">
               <RefreshCw className="w-6 h-6 animate-spin mr-2" /> 載入中...

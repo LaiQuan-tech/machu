@@ -67,3 +67,91 @@
 :where(footer, .hero-scene, #booking) :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline-color: #C49820;
 }
+
+/* ── 後台表格：手機上攤平成卡片列 ──────────────────────────────────────
+   後台有 11 張表格，最寬的 11 欄（祈福管理），每一格裡面還是多行堆疊。
+   在 375px 的手機上不管怎麼捲都讀不完一筆資料。
+
+   為什麼用 CSS 而不是「桌機一份 <table>、手機一份卡片 JSX」：
+   兩套等於同一筆資料有兩個渲染來源，日後加欄位要記得改兩邊，漏一邊就是
+   手機和桌機看到的內容不一樣。會員中心的曆法邏輯就是這樣平行維護出兩種
+   生日格式的（見 CLAUDE.md），不要再犯第二次。這裡只有一份 <table>，
+   lg 以下由 CSS 把 table/tr/td 全部改成 block，一列變成一張卡。
+
+   用法：<table className="admin-table …">，每個 <td> 帶 data-label="欄位名"
+   （拖拉把手那種沒有欄位名的不用帶）。
+
+   **display 一律用 :where() 包成 0 分特異性**，這樣格子自己帶的 Tailwind
+   display class 一定蓋得過我們。理由是實際踩到的：神尊／點燈的「操作」欄是
+   <td className="… flex justify-end">、按鈕直接掛在 td 底下，若我們把 td 強制
+   設成 grid／block，每顆按鈕會各自變成獨立項目而換行或直排。讓 flex 留著，
+   ::before 就只是排頭的第一個 flex 項目，版面自然是「操作 [改][刪]」一行。 */
+@media (max-width: 1023px) {
+  :where(.admin-table),
+  :where(.admin-table) :where(thead, tbody, tr, th, td) {
+    display: block;
+    width: auto;
+  }
+
+  /* 欄位名改由每格自己的 data-label 帶，整列標題在卡片版沒有意義 */
+  .admin-table thead { display: none; }
+
+  /* 有些表格帶 min-w-[640px]／min-w-[700px] 逼出桌機的橫向捲動，
+     卡片模式要解掉，否則卡片本身仍然寬過螢幕。這條要壓得過 utility，
+     所以用 .admin-table（0,1,0）而不是 :where()。 */
+  .admin-table { min-width: 0; }
+
+  .admin-table tbody { border-top: 0; }
+
+  /* 刻意不加 position:relative 與 overflow:hidden：
+     列裡面有下拉選單與彈出面板，前者會改變它們的定位基準、後者會把它們裁掉。 */
+  .admin-table tr {
+    border: 1px solid #e5e7eb;
+    border-radius: .75rem;
+    background: #fff;
+    margin-bottom: .75rem;
+    padding: .25rem 0;
+  }
+  .admin-table tr:last-child { margin-bottom: 0; }
+
+  /* 這幾條要壓得過格子上的 utility（px-6 py-4／max-w-xs／text-right），
+     所以維持 .admin-table td 的 0,1,1，不要包 :where()。 */
+  .admin-table td {
+    padding: .375rem .875rem;
+    border: 0;
+    max-width: none;
+    text-align: left;
+    white-space: normal;
+  }
+
+  /* 標籤：inline-block ＋ 固定寬。純文字的格子會排成「尊稱　觀音佛祖」一行；
+     內容是區塊元素的格子，標籤自然落在上面一行。兩種都不會壞。 */
+  .admin-table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 4.25rem;
+    margin-right: .5rem;
+    vertical-align: top;
+    color: #6b7280;
+    font-size: .6875rem;
+    line-height: 1.6;
+    font-weight: 500;
+  }
+
+  /* 桌機用 truncate／line-clamp 省橫向空間；卡片有整行可用，讓它完整展開 */
+  .admin-table td .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+  .admin-table td [class*="line-clamp-"] {
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+
+  /* 操作按鈕在卡片裡一律靠左起排，不要沿用桌機的置中／靠右 */
+  .admin-table td.justify-center,
+  .admin-table td.justify-end { justify-content: flex-start; }
+  .admin-table td > .justify-center,
+  .admin-table td > .justify-end { justify-content: flex-start; }
+}
