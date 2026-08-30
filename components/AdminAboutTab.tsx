@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GripVertical, Plus, Trash2, Eye, EyeOff, ImagePlus, X, Bold, Link2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2, Eye, EyeOff, ImagePlus, X, Bold, Link2, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   getAboutSections, createAboutSection, updateAboutSection, deleteAboutSection,
   reorderAboutSections, uploadAboutImage, getSiteImagePublicUrl,
@@ -44,11 +44,13 @@ interface SectionCardProps {
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
+  /** 手機用的搬移。觸控裝置不會觸發 HTML5 拖拉事件。 */
+  onMove: (dir: -1 | 1) => void;
   dragging: boolean;
 }
 
 const SectionCard: React.FC<SectionCardProps> = ({
-  section, index, total, busy, onPatch, onDelete, onDragStart, onDragEnter, onDragEnd, dragging,
+  section, index, total, busy, onPatch, onDelete, onDragStart, onDragEnter, onDragEnd, onMove, dragging,
 }) => {
   const [heading, setHeading] = useState(section.heading);
   const [body, setBody] = useState(section.body);
@@ -97,10 +99,24 @@ const SectionCard: React.FC<SectionCardProps> = ({
           onDragEnd={onDragEnd}
           title="拖曳調整順序"
           aria-label={`第 ${index + 1} 段，共 ${total} 段，拖曳調整順序`}
-          className="mt-1 p-1 text-gray-400 hover:text-temple-red cursor-grab active:cursor-grabbing shrink-0"
+          className="mt-1 p-1 text-gray-400 hover:text-temple-red cursor-grab active:cursor-grabbing shrink-0 hidden lg:block"
         >
           <GripVertical className="w-5 h-5" />
         </button>
+
+        {/* 手機改用上下鍵：HTML5 的 drag 事件在觸控裝置不會觸發 */}
+        <div className="flex flex-col lg:hidden shrink-0 text-gray-400 -ml-1">
+          <button type="button" onClick={() => onMove(-1)} disabled={busy || index === 0}
+            className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"
+            aria-label={`把第 ${index + 1} 段上移`}>
+            <ChevronUp className="w-5 h-5" />
+          </button>
+          <button type="button" onClick={() => onMove(1)} disabled={busy || index === total - 1}
+            className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"
+            aria-label={`把第 ${index + 1} 段下移`}>
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </div>
 
         <div className="flex-1 min-w-0 space-y-3">
           <div className="flex items-center gap-2">
@@ -266,12 +282,27 @@ const AdminAboutTab = ({
     dragFrom.current = to;
   };
 
-  const onDragEnd = async () => {
-    dragFrom.current = null;
+  const saveOrder = async (list: AboutSection[]) => {
     setBusy(true);
-    try { await reorderAboutSections(sections.map(s => s.id)); }
+    try { await reorderAboutSections(list.map(s => s.id)); }
     catch { alert('順序儲存失敗'); await load(); }
     finally { setBusy(false); }
+  };
+
+  const onDragEnd = async () => {
+    dragFrom.current = null;
+    await saveOrder(sections);
+  };
+
+  // 手機的上下鍵：搬一格就直接寫回（不像拖曳有「放開」這個時機點）
+  const moveSection = async (from: number, dir: -1 | 1) => {
+    const to = from + dir;
+    if (to < 0 || to >= sections.length) return;
+    const next = [...sections];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setSections(next);
+    await saveOrder(next);
   };
 
   const saveFacts = async (next: AboutFacts) => {
@@ -305,6 +336,7 @@ const AdminAboutTab = ({
                 onDragStart={() => { dragFrom.current = i; }}
                 onDragEnter={() => onDragEnter(i)}
                 onDragEnd={onDragEnd}
+                onMove={dir => moveSection(i, dir)}
               />
             ))}
             {sections.length === 0 && (

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GripVertical, Plus, Trash2, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { GripVertical, Plus, Trash2, Eye, EyeOff, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   getFaqItems, createFaqItem, updateFaqItem, deleteFaqItem, reorderFaqItems, requestRepublish,
 } from '../services/supabase';
@@ -25,17 +25,20 @@ const inputClass =
 interface FaqCardProps {
   item: FaqItem;
   index: number;
+  total: number;
   busy: boolean;
   onPatch: (patch: Partial<FaqItem>) => void;
   onDelete: () => void;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
+  /** 手機用的搬移。觸控裝置不會觸發 HTML5 拖拉事件，只有拖曳把手等於不能排序。 */
+  onMove: (dir: -1 | 1) => void;
   dragging: boolean;
 }
 
 const FaqCard: React.FC<FaqCardProps> = ({
-  item, index, busy, onPatch, onDelete, onDragStart, onDragEnter, onDragEnd, dragging,
+  item, index, total, busy, onPatch, onDelete, onDragStart, onDragEnter, onDragEnd, onMove, dragging,
 }) => {
   const [question, setQuestion] = useState(item.question);
   const [answer, setAnswer] = useState(item.answer);
@@ -57,7 +60,18 @@ const FaqCard: React.FC<FaqCardProps> = ({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-gray-400">
-          <GripVertical className="w-4 h-4 cursor-grab" />
+          <GripVertical className="w-4 h-4 cursor-grab hidden lg:block" />
+          {/* 手機改用上下鍵：HTML5 的 drag 事件在觸控裝置不會觸發 */}
+          <div className="flex items-center gap-1 lg:hidden -ml-1">
+            <button type="button" onClick={() => onMove(-1)} disabled={busy || index === 0}
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="上移一題">
+              <ChevronUp className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => onMove(1)} disabled={busy || index === total - 1}
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="下移一題">
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
           <span className="text-xs font-medium">第 {index + 1} 題</span>
           {!item.isVisible && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">未顯示</span>}
         </div>
@@ -167,12 +181,27 @@ const AdminFaqTab: React.FC = () => {
     dragFrom.current = to;
   };
 
-  const onDragEnd = async () => {
-    dragFrom.current = null;
+  const saveOrder = async (list: FaqItem[]) => {
     setBusy(true);
-    try { await reorderFaqItems(items.map(x => x.id)); }
+    try { await reorderFaqItems(list.map(x => x.id)); }
     catch { alert('順序儲存失敗'); await load(); }
     finally { setBusy(false); }
+  };
+
+  const onDragEnd = async () => {
+    dragFrom.current = null;
+    await saveOrder(items);
+  };
+
+  // 手機的上下鍵：搬一格就直接寫回（不像拖曳有「放開」這個時機點）
+  const moveItem = async (from: number, dir: -1 | 1) => {
+    const to = from + dir;
+    if (to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+    await saveOrder(next);
   };
 
   const doRepublish = async () => {
@@ -215,6 +244,7 @@ const AdminFaqTab: React.FC = () => {
                 key={item.id}
                 item={item}
                 index={i}
+                total={items.length}
                 busy={busy}
                 dragging={dragFrom.current === i}
                 onPatch={p => patch(item.id, p)}
@@ -222,6 +252,7 @@ const AdminFaqTab: React.FC = () => {
                 onDragStart={() => { dragFrom.current = i; }}
                 onDragEnter={() => onDragEnter(i)}
                 onDragEnd={onDragEnd}
+                onMove={dir => moveItem(i, dir)}
               />
             ))}
             {items.length === 0 && (

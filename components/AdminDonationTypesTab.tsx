@@ -26,6 +26,7 @@ const inputClass =
 interface RowProps {
   item: DonationTypeRecord;
   index: number;
+  total: number;
   usedCount: number;
   busy: boolean;
   onRename: (next: string) => void;
@@ -34,12 +35,14 @@ interface RowProps {
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
+  /** 手機用的搬移。觸控裝置不會觸發 HTML5 拖拉事件。 */
+  onMove: (dir: -1 | 1) => void;
   dragging: boolean;
 }
 
 const TypeRow: React.FC<RowProps> = ({
-  item, index, usedCount, busy, onRename, onToggle, onDelete,
-  onDragStart, onDragEnter, onDragEnd, dragging,
+  item, index, total, usedCount, busy, onRename, onToggle, onDelete,
+  onDragStart, onDragEnter, onDragEnd, onMove, dragging,
 }) => {
   const [name, setName] = useState(item.name);
   useEffect(() => { setName(item.name); }, [item.name]);
@@ -55,7 +58,18 @@ const TypeRow: React.FC<RowProps> = ({
         dragging ? 'border-temple-red shadow-lg opacity-60' : 'border-gray-200'
       } ${item.isVisible ? '' : 'bg-gray-50'}`}
     >
-      <GripVertical className="w-4 h-4 text-gray-300 cursor-grab shrink-0" />
+      <GripVertical className="w-4 h-4 text-gray-300 cursor-grab shrink-0 hidden lg:block" />
+      {/* 手機改用上下鍵：HTML5 的 drag 事件在觸控裝置不會觸發 */}
+      <div className="flex items-center gap-1 lg:hidden shrink-0 -ml-1 text-gray-400">
+        <button type="button" onClick={() => onMove(-1)} disabled={busy || index === 0}
+          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
+          <ChevronUp className="w-4 h-4" />
+        </button>
+        <button type="button" onClick={() => onMove(1)} disabled={busy || index === total - 1}
+          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
       <span className="text-xs text-gray-400 w-6 shrink-0">{index + 1}</span>
 
       <input
@@ -193,12 +207,27 @@ const AdminDonationTypesTab: React.FC<{ donations: DonationRecord[]; onRefresh: 
     dragFrom.current = to;
   };
 
-  const onDragEnd = async () => {
-    dragFrom.current = null;
+  const saveOrder = async (list: DonationTypeRecord[]) => {
     setBusy(true);
-    try { await reorderDonationTypes(items.map(x => x.id)); }
+    try { await reorderDonationTypes(list.map(x => x.id)); }
     catch { alert('順序儲存失敗'); await load(); }
     finally { setBusy(false); }
+  };
+
+  const onDragEnd = async () => {
+    dragFrom.current = null;
+    await saveOrder(items);
+  };
+
+  // 手機的上下鍵：搬一格就直接寫回（不像拖曳有「放開」這個時機點）
+  const moveItem = async (from: number, dir: -1 | 1) => {
+    const to = from + dir;
+    if (to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+    await saveOrder(next);
   };
 
   const visibleCount = items.filter(x => x.isVisible).length;
@@ -239,6 +268,7 @@ const AdminDonationTypesTab: React.FC<{ donations: DonationRecord[]; onRefresh: 
                     key={item.id}
                     item={item}
                     index={i}
+                    total={items.length}
                     usedCount={countOf(item.name)}
                     busy={busy}
                     dragging={dragFrom.current === i}
@@ -248,6 +278,7 @@ const AdminDonationTypesTab: React.FC<{ donations: DonationRecord[]; onRefresh: 
                     onDragStart={() => { dragFrom.current = i; }}
                     onDragEnter={() => onDragEnter(i)}
                     onDragEnd={onDragEnd}
+                    onMove={dir => moveItem(i, dir)}
                   />
                 ))}
               </div>
