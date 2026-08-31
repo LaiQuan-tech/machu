@@ -323,21 +323,38 @@ const HERO_SLIDESHOW = false;
 /**
  * Hero 的三尊神尊。
  *
- * 構圖是**主神居中**：天上聖母最高最大、疊在最上層（z-3），濟公與二媽退為兩側脅侍，
- * 尺寸相當、頂端幾乎齊平，被主神各蓋住一截。三尊的頂端連線是中央最高的拱形，
- * 不是舊版由左而右遞增的斜線——換排法時這條線就是驗收依據。
+ * 身分（**不要再弄錯**）：左＝濟公活佛、中＝天上聖母三媽、右＝天上聖母二媽。
+ * **三媽是本壇主神**，橘袍；二媽是黃袍。檔名 hero-jigong／hero-sanma／hero-erma
+ * 與 alt 都照這個對應，index.html 的 preload 指向三媽。
+ * 想快速確認誰是誰：取袍身色相中位數，三媽約 21°（橘）、二媽約 45°（黃）。
+ *
+ * 構圖是**主神居中、三尊高低錯落**（廟方要求）：
+ *   高度與頂端一律是 三媽 > 二媽 > 濟公，三媽最高最大且疊在最上層（z-3）。
+ *
+ * **驗收依據是「彼此不蓋到頭」**，而且要用實際像素判定，不能只看外框：
+ * 每尊的頭部（含冠帽）範圍由 alpha 輪廓剖面算出——由上往下找寬度首次超過
+ * 最大寬 55% 的那一列當肩線，肩線以上就是頭。實測值：
+ *   濟公 x 22.4–76.1%、y 0–32.8%；三媽 x 23.9–86.6%、y 0–34.5%；
+ *   二媽 x 33.9–88.5%、y 0–42.0%。
+ * 判定要取「上層那尊的不透明像素 ∩ 下層那尊頭部的不透明像素」。只用頭部矩形
+ * 會誤判——矩形四角本來就是透明的，量到的重疊有一半根本沒碰到冠帽。
  *
  * **手機（未加 sm: 的那組）用 vw、桌機（sm:）用 vh，同一個斷點內單位必須一致**，
  * 否則畫面比例一變，三尊的相對大小與重疊量就會各走各的，拱形也就歪了。
  *
- * 桌機那組每個 vh 都包一層 `min(A vh, A×0.875 vw)`（**0.875 這個比例八個值要一起改**）。
+ * 桌機那組每個 vh 都包一層 `min(A vh, A×0.79 vw)`（**0.79 這個比例八個值要一起改**）。
  * 為什麼需要：平板直立（iPad 第十代 820×1180）時螢幕又高又窄，純 vh 會讓整組寬過畫面，
  * 最左邊的濟公被切掉。加上 vw 上限之後，高瘦畫面自動改由寬度決定尺寸，三個高度與
- * 兩個重疊量同步縮放，構圖不變。係數從 0.9 降到 0.875 是因為主神居中的新構圖比舊版寬，
- * 820×1180 下整組原本溢出左緣 20px；0.875 讓它縮到 794px，剛好塞進可用的 796px。
- * 判定門檻是長寬比 1/0.875 ≈ 1.143：比這寬（一般桌機、筆電、平板橫放）走 vh，
- * **桌機完全不受影響**（1280×800 實測三尊高度仍是 512/752/544、位置一模一樣）；
- * 比這窄（平板直立）走 vw。
+ * 兩個重疊量同步縮放，構圖不變。係數一路從 0.9 降到 0.79，是因為每次把整組加大
+ * （廟方要求「不要都擠在右下角，提高到整個右邊」）都會讓它在平板直立溢出左緣。
+ * 0.79 讓 820×1180 下整組剛好塞得進可用寬度。
+ * 判定門檻是長寬比 1/0.79 ≈ 1.266：比這寬（一般桌機、筆電、平板橫放）走 vh，
+ * **桌機完全不受影響**；比這窄（平板直立）走 vw。
+ *
+ * 已知未修：平板直立（820×1180）時 Hero 左欄的「報名普渡法會」按鈕會被擠出畫面左緣。
+ * 那是既有問題（正式站量到 left=-173），成因是 stage 掛 shrink-0、左欄是 flex-1，
+ * 按鈕又是 whitespace-nowrap。要修得把 Hero 的兩欄斷點從 sm 提到 lg，讓平板直立
+ * 沿用手機的上下堆疊版型——那是另一件事，不在這一輪。
  *
  * `sm:max-w-none`：原本的 `sm:max-w-[44/52/60vw]` 是防呆上限，但三個加起來是 156vw，
  * 在窄螢幕上三個同時觸頂，反而變成「寬度被撐開」的元凶。高度改用 min() 之後
@@ -347,21 +364,21 @@ const HERO_SLIDESHOW = false;
  * `margin-bottom: -calc(...)`，那是無效的 CSS。
  */
 const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
-  // 左脅侍。z 在主神之下，右半邊被主神蓋住一截。
+  // 左：濟公活佛。z 在主神之下，右半邊被主神蓋住一截（但不會蓋到頭，見上方說明）。
   { src: '/hero-jigong.webp', fallback: '/hero-jigong.png', name: '濟公活佛',
-    size: 'h-[76vw] max-w-[70vw] sm:h-[min(64vh,56vw)] sm:max-w-none',
-    drop: '-mb-[6.6vw] sm:mb-[calc(min(5.2vh,4.55vw)*-1)]', layer: 'z-[2]' },
-  // 主神居中：最高最大、疊在最上層，優先權也給她
-  //（index.html 的 preload 也是這一張，兩邊要一致）
-  { src: '/hero-mazu.webp',   fallback: '/hero-mazu.png',   name: '天上聖母',
-    size: 'h-[120vw] max-w-[88vw] sm:h-[min(94vh,82.25vw)] sm:max-w-none',
-    drop: '-mb-[16.2vw] sm:mb-[calc(min(11.5vh,10.06vw)*-1)]',
-    gap: '-ml-[29vw] sm:ml-[calc(min(16vh,14vw)*-1)]', layer: 'z-[3]', priority: true },
-  // 右脅侍。二媽也是天上聖母，但在這個構圖裡退為脅侍，尺寸與濟公相當
-  { src: '/hero-erma.webp',   fallback: '/hero-erma.png',   name: '天上聖母（二媽）',
-    size: 'h-[80vw] max-w-[74vw] sm:h-[min(68vh,59.5vw)] sm:max-w-none',
-    drop: '-mb-[10.3vw] sm:mb-[calc(min(8vh,7vw)*-1)]',
-    gap: '-ml-[27vw] sm:ml-[calc(min(16vh,14vw)*-1)]', layer: 'z-[1]' },
+    size: 'h-[60vw] max-w-[72vw] sm:h-[min(72vh,56.88vw)] sm:max-w-none',
+    drop: '-mb-[7vw] sm:mb-[calc(min(8vh,6.32vw)*-1)]', layer: 'z-[2]' },
+  // 中：天上聖母三媽，本壇主神。最高最大、疊在最上層，優先權與 preload 都給她
+  //（index.html 的 preload 要指向同一張，兩邊不一致等於預載了不是主角的那張）
+  { src: '/hero-sanma.webp',  fallback: '/hero-sanma.png',  name: '天上聖母三媽',
+    size: 'h-[112vw] max-w-[88vw] sm:h-[min(98vh,77.42vw)] sm:max-w-none',
+    drop: '-mb-[17vw] sm:mb-[calc(min(13vh,10.27vw)*-1)]',
+    gap: '-ml-[15vw] sm:ml-[calc(min(10.5vh,8.29vw)*-1)]', layer: 'z-[3]', priority: true },
+  // 右：天上聖母二媽。刻意與濟公不同高，做出「高高低低」而不是對稱的兩根柱子
+  { src: '/hero-erma.webp',   fallback: '/hero-erma.png',   name: '天上聖母二媽',
+    size: 'h-[64vw] max-w-[76vw] sm:h-[min(78vh,61.62vw)] sm:max-w-none',
+    drop: '-mb-[9vw] sm:mb-[calc(min(6vh,4.74vw)*-1)]',
+    gap: '-ml-[16vw] sm:ml-[calc(min(15.5vh,12.25vw)*-1)]', layer: 'z-[1]' },
 ];
 
 // 志工報名有自己的網址 /volunteer：可單獨分享，瀏覽器上一頁也能正確返回。
