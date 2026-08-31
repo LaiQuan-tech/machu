@@ -136,11 +136,18 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
 const ENABLE_REPAIR = false;
 
 /**
- * 公佈欄（首頁「最新活動」區塊）暫時對外隱藏（廟方要求）。
- * 改回 true 就整組恢復：導覽列項目、首頁區塊、捲動高亮、祈福活動頁的「查看最新公告」。
- * 後台的「公佈欄管理」不受影響——內容照樣可以維護，只是前台先不露出。
+ * 公佈欄（首頁「最新活動」區塊）。
+ *
+ * 這個旗標同時控制四個地方，開關一次到位：導覽列項目、首頁區塊本身、
+ * 捲動高亮的 pairs、以及祈福活動頁那顆「查看最新公告」。
+ *
+ * 上一輪隱藏時 pairs 那一項是被「直接刪掉」而不是跟著旗標走，所以旗標翻回 true
+ * 導覽列雖然出現「最新活動」，捲過去卻不會高亮。現在四處都由這個旗標控制，
+ * 改 false 會一起收掉，改 true 會一起回來。
+ *
+ * 後台的「公佈欄管理」不受影響——不論開關，內容都照樣可以維護。
  */
-const ENABLE_BULLETIN = false;
+const ENABLE_BULLETIN = true;
 
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 
@@ -772,9 +779,13 @@ const App: React.FC = () => {
       const line = Math.max(120, Math.min(window.innerHeight * 0.35, 300));
       // relocation-intro／services 是首頁區塊：前者對應導覽的「遷址捐款」，
       // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進隨喜捐獻。
+      // 由下往上排，取第一個已捲過判定線的區塊，所以順序必須與頁面由下而上一致。
+      // bulletin 夾在 about 與 home 之間（頁面上它在 hero 之下、關於我們之上）。
       const pairs: [string, string][] = [
         ['faq', 'faq'], ['donation', 'donation'], ['relocation-intro', 'relocation'], ['deities', 'deities'],
-        ['about', 'about'], ['home', 'home'],
+        ['about', 'about'],
+        ...(ENABLE_BULLETIN ? [['bulletin', 'bulletin'] as [string, string]] : []),
+        ['home', 'home'],
       ];
       for (const [id, navId] of pairs) {
         const el = document.getElementById(id);
