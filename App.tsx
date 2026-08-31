@@ -355,7 +355,7 @@ const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: s
   //（index.html 的 preload 也是這一張，兩邊要一致）
   { src: '/hero-mazu.webp',   fallback: '/hero-mazu.png',   name: '天上聖母',
     size: 'h-[120vw] max-w-[88vw] sm:h-[min(94vh,82.25vw)] sm:max-w-none',
-    drop: '-mb-[24.2vw] sm:mb-[calc(min(19vh,16.63vw)*-1)]',
+    drop: '-mb-[16.2vw] sm:mb-[calc(min(11.5vh,10.06vw)*-1)]',
     gap: '-ml-[29vw] sm:ml-[calc(min(16vh,14vw)*-1)]', layer: 'z-[3]', priority: true },
   // 右脅侍。二媽也是天上聖母，但在這個構圖裡退為脅侍，尺寸與濟公相當
   { src: '/hero-erma.webp',   fallback: '/hero-erma.png',   name: '天上聖母（二媽）',
