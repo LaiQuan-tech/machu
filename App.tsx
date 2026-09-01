@@ -104,7 +104,12 @@ async function submitSequentially<T>(items: T[], send: (item: T) => Promise<unkn
   return ok;
 }
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
-const ENABLE_GROUP_BOOKING = false; // 揪團功能暫時停用，需要時設回 true
+// 揪團（共享報名場次）。2026-09-02 於 feature/group-booking 分支開啟，
+// **普渡法會（9/13）結束後才合併到 main 上線**。
+// 不先在 main 改的理由：main 上只要是 true，廟方按後台的「重新發布」就會
+// 觸發 Deploy Hook 從 git 重建，未測過的功能會直接上正式站（CLAUDE.md 記載
+// 這類事故發生過兩次）。
+const ENABLE_GROUP_BOOKING = true;
 
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），

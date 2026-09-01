@@ -241,15 +241,27 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
                   zodiac={entry.zodiac}
                   onChange={(birthDate, zodiac) => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, birthDate, zodiac } : x))}
                 />
-                {/* 生肖 */}
+                {/* 生肖：有生日就由生日推算，不讓人手選。
+                    舊版是「自動帶入之後仍可改」的下拉，結果出現過生日與生肖對不起來的
+                    資料（民國112年11月5日是兔年，卻被選成蛇）。生肖是生日的函數、
+                    不是獨立的意見，開放編輯只會製造矛盾。
+                    2026-08-11 全站統一時掃了報名表與會員中心，**這裡因為揪團停用被漏掉**，
+                    2026-09-02 補上。沒填生日的才保留下拉。 */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">生肖（自動帶入，可手動修改）</label>
-                  <select value={entry.zodiac || ''}
-                    onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-                    <option value="">請選擇</option>
-                    {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
-                  </select>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">生肖</label>
+                  {entry.birthDate ? (
+                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-1.5 text-sm text-[#2E2A22] flex items-center justify-between">
+                      <span>{entry.zodiac ? `${entry.zodiac}年` : '—'}</span>
+                      <span className="text-[11px] text-gray-400">依生日自動換算</span>
+                    </div>
+                  ) : (
+                    <select value={entry.zodiac || ''}
+                      onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                      <option value="">請選擇（填生日就會自動帶入）</option>
+                      {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
+                    </select>
+                  )}
                 </div>
                 {/* 地址 */}
                 <div>
