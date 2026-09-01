@@ -1400,6 +1400,16 @@ const App: React.FC = () => {
   // 其他分頁頂端是淺色內容，必須鋪米色底＋深色字才讀得到。
   const navOverHero = page === 'home' && !isScrolled;
 
+  /**
+   * 導覽列現在是不是「米色底」的狀態：捲過 Hero 之後是，**手機選單展開時也是**。
+   *
+   * **底色、文字顏色、品牌淡入一律用這一個判斷，不要各自去看 navOverHero。**
+   * 各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 navOverHero，
+   * 結果是米色底配白色 X——實測對比只有 1.24:1，等於按鈕消失（2026-09-02 踩過）。
+   * 品牌「和聖壇」同理，不跟著亮出來的話，展開選單時上面那條會是一片空白米色。
+   */
+  const navSolid = !navOverHero || isMenuOpen;
+
   // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
   const hideLineFloat = page === 'home' && !pastHero;
 
@@ -1459,9 +1469,11 @@ const App: React.FC = () => {
           // 而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——這 300ms 就是一條很明顯的白線
           // （廟方回報「往下滑導覽列下緣會出現一條白線」）。維持寬度、只讓顏色在
           // 透明與金色之間過渡，就沒有中間狀態可言。
-          navOverHero ? 'border-transparent' : 'backdrop-blur-md shadow-md border-[#C49820]/50'
+          navSolid ? 'backdrop-blur-md shadow-md border-[#C49820]/50' : 'border-transparent'
         }`}
-        style={{ backgroundColor: navOverHero ? 'transparent' : 'rgba(240, 233, 206, 0.97)' }}
+        // 選單展開時一律給底色：不給的話上面那條（宮壇名＋關閉鈕）還停在透明狀態，
+        // 跟下方的米色面板斷成兩截，而且那兩個元素自己也疊在金箔與神尊上。
+        style={{ backgroundColor: navSolid ? 'rgba(240, 233, 206, 0.97)' : 'transparent' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
@@ -1470,11 +1482,11 @@ const App: React.FC = () => {
             <button
               type="button"
               onClick={() => navTo({ id: 'home', label: '首頁', kind: 'section' })}
-              aria-hidden={navOverHero}
-              tabIndex={navOverHero ? -1 : 0}
+              aria-hidden={!navSolid}
+              tabIndex={navSolid ? 0 : -1}
               className={`shrink-0 font-serif font-bold text-xl sm:text-2xl tracking-[0.25em] text-[#3D2800]
                 transition-all duration-300 hover:text-[#7C5C1E] focus-visible:text-[#7C5C1E]
-                ${navOverHero ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}
+                ${navSolid ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
             >
               和聖壇
             </button>
@@ -1486,8 +1498,8 @@ const App: React.FC = () => {
                   onClick={() => navTo(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item.id
-                      ? (navOverHero ? 'bg-white/15 text-white font-semibold' : 'bg-temple-gold/15 text-temple-red font-semibold')
-                      : (navOverHero ? 'text-white/90 hover:bg-white/10 hover:text-white' : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red')}`}
+                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   {item.label}
                   {activeSection === item.id && (
@@ -1510,14 +1522,31 @@ const App: React.FC = () => {
                   aria-haspopup="true"
                   className={`relative flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${NAV_MORE.some(m => m.id === activeSection) || moreOpen
-                      ? (navOverHero ? 'bg-white/15 text-white font-semibold' : 'bg-temple-gold/15 text-temple-red font-semibold')
-                      : (navOverHero ? 'text-white/90 hover:bg-white/10 hover:text-white' : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red')}`}
+                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   更多
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {moreOpen && (
                   <div className="absolute right-0 top-full mt-2 w-44 bg-[#F0E9CE] rounded-xl shadow-lg border border-[#C49820]/40 py-1.5 overflow-hidden">
+                    {/* 天上聖母經放在下拉「最上面」而不是最下面。
+                        這是經典內容不是服務項目，廟方要凸顯它；擺在分隔線下方等於
+                        被當成附屬品。用金底＋襯線字與下面那些純文字連結區隔開，
+                        才不會看起來只是「又一個選項」。
+                        **不要沿用「目前所在頁」那組 bg-temple-gold/15 + text-temple-red**：
+                        一來金底在這裡本來代表「你在這裡」，語意會打架；二來那組實測只有
+                        4.54:1，比旁邊的純文字項目（11.49:1）還難讀——「凸顯」的那一項
+                        反而最看不清楚。改用更濃的金底配深字。
+                        為什麼不提到最外層那排：實測 1024px 時導覽列已經超出 4px，
+                        再加一個項目一定擠爆——要提上去得先拿掉一個現有項目。 */}
+                    <button
+                      onClick={() => { setShowScripture(true); setMoreOpen(false); }}
+                      className="block w-full text-left px-4 py-3 text-sm font-serif font-bold text-[#3D2800] bg-temple-gold/30 border-l-2 border-temple-gold hover:bg-temple-gold/40 transition-colors"
+                    >
+                      天上聖母經
+                    </button>
+                    <div className="h-px bg-[#C49820]/30 my-1.5 mx-3" />
                     {NAV_MORE.map((item) => (
                       <button
                         key={item.id}
@@ -1530,13 +1559,7 @@ const App: React.FC = () => {
                         {item.label}
                       </button>
                     ))}
-                    <div className="h-px bg-[#C49820]/30 my-1.5 mx-3" />
-                    <button
-                      onClick={() => { setShowScripture(true); setMoreOpen(false); }}
-                      className="block w-full text-left px-4 py-2.5 text-sm font-serif text-temple-red hover:bg-temple-red/10 transition-colors"
-                    >
-                      天上聖母經
-                    </button>
+
                   </div>
                 )}
               </div>
@@ -1558,9 +1581,9 @@ const App: React.FC = () => {
                     aria-label={label}
                     title={label}
                     className={`p-2 rounded-full transition-colors ${
-                      navOverHero
-                        ? 'text-white/85 hover:text-white hover:bg-white/15'
-                        : 'text-[#7C5C1E] hover:text-temple-red hover:bg-temple-gold/15'
+                      navSolid
+                        ? 'text-[#7C5C1E] hover:text-temple-red hover:bg-temple-gold/15'
+                        : 'text-white/85 hover:text-white hover:bg-white/15'
                     }`}
                   >
                     <Icon className="w-[18px] h-[18px]" />
@@ -1568,7 +1591,7 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              <div className={`w-px h-6 mx-1 ${navOverHero ? 'bg-white/25' : 'bg-[#3D2800]/20'}`} />
+              <div className={`w-px h-6 mx-1 ${navSolid ? 'bg-[#3D2800]/20' : 'bg-white/25'}`} />
               {/*
                 會員入口降級成外框鈕。原本是紅底實心的大按鈕，視覺權重高過「預約問事」
                 這種真正想推的動作——但它不能拿掉：登入後這裡是「會員中心」，
@@ -1578,9 +1601,9 @@ const App: React.FC = () => {
               <button
                 onClick={() => setShowMemberPortal(true)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors ${
-                  navOverHero
-                    ? 'border-white/40 text-white hover:bg-white/10'
-                    : 'border-temple-gold/70 text-[#7C5C1E] hover:bg-temple-gold/10 hover:border-temple-gold'
+                  navSolid
+                    ? 'border-temple-gold/70 text-[#7C5C1E] hover:bg-temple-gold/10 hover:border-temple-gold'
+                    : 'border-white/40 text-white hover:bg-white/10'
                 }`}
               >
                 <UserIcon className="w-4 h-4" aria-hidden="true" />
@@ -1595,7 +1618,7 @@ const App: React.FC = () => {
                 aria-expanded={isMenuOpen}
                 aria-controls="mobile-navigation"
                 className={`inline-flex items-center justify-center p-2 rounded-full transition-colors ${
-                  navOverHero ? 'text-white hover:bg-white/10' : 'text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10'
+                  navSolid ? 'text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10' : 'text-white hover:bg-white/10'
                 }`}
               >
                 {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
@@ -1608,7 +1631,19 @@ const App: React.FC = () => {
         {/* 展開高度改用 vh 並允許內部捲動：項目增加後實際高度已達 600px，
             原本固定的 max-h-[500px] 會把最後幾項（聖母經、會員登入）裁掉。 */}
         <div id="mobile-navigation" className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1 max-h-[80vh] overflow-y-auto">
+          {/* 底色用 inline style 而不是 Tailwind class。
+              原本寫 `bg-[#F0E9CE]/98`——**那個 class 產不出來**：Tailwind 的不透明度
+              級距沒有 98，整條規則被丟掉，面板只剩 backdrop-blur，變成沒有底色的
+              純毛玻璃。疊在 Hero 的金箔與神尊上，選單文字幾乎看不見
+              （廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。
+              最惡劣的是它不會報錯，class 明明寫著顏色卻完全沒作用。
+              **任意色配不透明度時，值必須落在 Tailwind 的級距上**（…90、95、100），
+              要用 98 這種數字就得寫 `/[0.98]`，或像這裡直接給 inline style——
+              與導覽列本體同一種寫法，兩者顏色也保證一致。 */}
+          <div
+            className="backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1 max-h-[80vh] overflow-y-auto"
+            style={{ backgroundColor: 'rgba(240, 233, 206, 0.97)' }}
+          >
             {/*
               社群：對應桌機導覽列右側的位置。放在選單最上方（廟方指定）。
               圖示做成 44px 的方塊（比 WCAG 的 24px 寬鬆）：手機選單是拇指操作，
@@ -1634,6 +1669,17 @@ const App: React.FC = () => {
                 <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
               </>
             )}
+            {/* 天上聖母經放在選單「最上方」（社群之下、導覽項目之上）。
+                這是經典內容不是服務項目，廟方要凸顯它；原本擺在最底下、
+                還被 max-h 裁掉過（見上方註解），等於藏起來。
+                金底＋左側金條＋襯線字，與下面那排純文字項目明顯分開。 */}
+            <button
+              onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
+              className="block w-full text-left px-4 py-3.5 rounded-lg text-base font-serif font-bold text-[#3D2800] bg-temple-gold/30 border-l-4 border-temple-gold hover:bg-temple-gold/40 transition-colors"
+            >
+              天上聖母經
+            </button>
+            <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
             {NAV_PRIMARY.map((item) => (
               <button
                 key={item.id}
@@ -1661,12 +1707,6 @@ const App: React.FC = () => {
                 {item.label}
               </button>
             ))}
-            <button
-              onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
-              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
-            >
-              天上聖母經
-            </button>
             <button
               onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
               className="w-full px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-gold/50 hover:bg-temple-gold/10 flex items-center gap-2"
