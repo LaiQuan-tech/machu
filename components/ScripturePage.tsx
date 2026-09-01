@@ -301,9 +301,17 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
              注意：這整段 CSS 在 JSX 的樣板字串裡，**註解不要寫反引號**，
              會把字串截斷（2026-09-02 踩過）。 */
           .sp-text { display: contents; }
-          .sp-section-inner { align-items: flex-end !important; }
+          /* 置中：插圖有 max-width:60% 的上限，吃不下全部剩餘空間，
+             預設的 justify-content:flex-start 會把餘白全堆在尾端——
+             短經文那幾節整組被推到一邊、另一邊空 79px（實測第 33/34 節）。
+             置中之後餘白平分兩側，插圖被擠到上一行時也會置中而不是貼邊。
+             左右交錯仍由 row / row-reverse 決定，不受影響。 */
+          .sp-section-inner { align-items: flex-end !important; justify-content: center !important; }
           .sp-img-float { flex: 1 1 140px !important; width: auto !important;
                           min-width: 0 !important; max-width: 60% !important;
+                          /* 實測插圖永遠是該列最高的（268 vs 經文 92），
+                             所以它自己定義列高、這行其實不生效；留著是為了
+                             將來字級變大讓經文超過插圖時仍有合理行為。 */
                           align-self: center !important; }
           .sp-parallax-wrap { width:100% !important; }
           /* 經文靠上、插圖維持置中。

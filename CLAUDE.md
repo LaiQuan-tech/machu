@@ -111,6 +111,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **聖母經內頁的插圖位置由內容決定（`components/ScripturePage.tsx`）**：手機版原本 `.sp-section-inner { flex-direction: column }`，不管經文多短插圖一律在最上方，短經文旁邊就留一大片空白（廟方回報）。現在插圖與**經文**並排、塞不下才被擠到上面。
   關鍵是 `.sp-text { display: contents }`：把「文字」那一層的框拿掉，讓經文／分隔線／註解升格成 `.sp-section-inner` 的 flex 項目——插圖與經文因此同層才可能並排，註解則用 `flex-basis:100%` 自己一行。桌機不受影響（規則只在 767px 以下）。
   換行門檻＝插圖的 `flex-basis`（140px）＋間距：實測 375px 螢幕上經文寬 ≤158 並排、≥189 插圖被擠到上面。改門檻就改那個 basis。
+  兩個對齊細節：**經文 `align-self: flex-start`**（直排閱讀起點在右上；短經文靠下會沉在插圖底部），**整列 `justify-content: center`**（插圖有 `max-width:60%` 上限吃不下剩餘空間，預設 flex-start 會把餘白全堆在尾端——短經文那幾節整組被推到一邊、另一邊空 79px）。
+  插圖的 `align-self` 實測**永遠不生效**：它一定是該列最高的元素、自己定義列高。留著只是為了將來字級變大讓經文超過插圖時仍有合理行為。
 - **`ScripturePage.tsx` 的 CSS 寫在 JSX 的樣板字串裡，註解**不能**出現反引號**：會直接把字串截斷，型別檢查噴一長串 `'}' expected`，但錯誤位置指向別處，很難一眼看出是註解害的（2026-09-02 踩過）。
 - **Tailwind preflight 的預設邊框色是 gray-200**（`rgb(229,231,235)`，看起來就是白線）。所以**不要靠加減 `border-*` class 來決定「有沒有線」**：class 一移除顏色立刻跳回那個灰白色，而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——那 300ms 就是一條很明顯的白線（導覽列踩過，廟方回報「往下滑 menu 下緣會出現白線」）。正確作法是**邊框常駐、只換顏色**：`border-b` 一直掛著，在 `border-transparent` 與目標色之間過渡。
 - **導覽高亮（`handleScroll` 的捲動高亮）**：判定線用 `innerHeight*0.35`（夾在 120–300），不要改回固定 120px——`section[id]` 的 `scroll-margin-top` 是 80px，捲到定位時區塊頂端就在 80，跟 120 只差 40px，平滑捲動少捲 41px 高亮就退回上一個區塊（症狀：點「祀奉神尊」卻亮「關於我們」）。另有 `navLockRef`：點導覽後的平滑捲動期間停掉捲動高亮，否則途中每經過一個區塊就改一次。換頁的 `window.scrollTo` 要指定 `behavior:'instant'`，CSS 有全域 `scroll-behavior: smooth`。
