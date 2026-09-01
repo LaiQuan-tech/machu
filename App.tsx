@@ -164,6 +164,18 @@ const ENABLE_BULLETIN = true;
  *   分類 = 霧金描邊，安靜地待著
  * 對比都量過（見 CLAUDE.md），不要把霧金的透明度往下調。
  */
+/**
+ * Hero 底部收邊要淡進的顏色 ＝ **Hero 下一個區塊的底色**。
+ * 兩者不一致，交界就是兩塊平色相接、看起來像被切了一刀（廟方回報過：
+ * 當時收邊淡進米色 #F5F0E8，而下面的公佈欄是 bg-white，中間就多一條白邊）。
+ * 曲線做得再順都救不了這個，因為問題不在漸層在配色。
+ * 公佈欄關掉時，接在 Hero 後面的是「關於我們」（bg-temple-bg）。
+ * 動到區塊順序或它們的底色時，這裡要一起改。
+ */
+const HERO_FADE_RGB = ENABLE_BULLETIN
+  ? '255 255 255'   // #bulletin 的 bg-white
+  : '245 240 232';  // #about 的 bg-temple-bg
+
 const TAG_PINNED = 'bg-temple-red text-white';
 const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
 
@@ -1747,7 +1759,10 @@ const App: React.FC = () => {
 
         {/* 底部的倒三角切角已移除，改成平的收邊：
             用一道極短的漸層讓織錦自然過渡到下一段的米白，不做幾何造型。 */}
-        <div className="hero-bottom-fade absolute bottom-0 inset-x-0 pointer-events-none" />
+        <div
+          className="hero-bottom-fade absolute bottom-0 inset-x-0 pointer-events-none"
+          style={{ '--hero-fade-rgb': HERO_FADE_RGB } as React.CSSProperties}
+        />
       </section>
 
 {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}

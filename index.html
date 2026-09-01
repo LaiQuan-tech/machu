@@ -211,21 +211,28 @@
       /* 直線漸層會看到一條「起點線」：人眼對亮度變化的**轉折**很敏感，
          線性 alpha 在頭尾各有一個折點，那兩個折點就是看起來不自然的原因。
          改用 smoothstep（3t²−2t³，兩端斜率為 0）之後起訖都糊掉了。
-         中間那些看似隨便的數字就是 smoothstep 每 10% 取一個點，不要「順手改成等差」。 */
+         中間那些看似隨便的數字就是 smoothstep 每 10% 取一個點，不要「順手改成等差」。
+
+         ⚠ 終點色必須等於**Hero 下一個區塊的底色**，否則交界會是兩塊平色相接，
+         看起來就是一條切口——曲線再順也沒用（廟方回報過，當時終點寫死米色
+         #F5F0E8，而下一區的公佈欄是 bg-white）。
+         下一區塊會變（公佈欄關掉時換成「關於我們」的米色），所以顏色由 App.tsx
+         用 --hero-fade-rgb 傳進來，這裡只放預設值。改區塊順序或底色時要一起檢查。 */
       .hero-bottom-fade {
+        --hero-fade-rgb: 255 255 255;   /* 預設＝公佈欄的 bg-white */
         height: var(--hero-fade);
         background: linear-gradient(to bottom,
-          rgba(245, 240, 232, 0)     0%,
-          rgba(245, 240, 232, 0.028) 10%,
-          rgba(245, 240, 232, 0.104) 20%,
-          rgba(245, 240, 232, 0.216) 30%,
-          rgba(245, 240, 232, 0.352) 40%,
-          rgba(245, 240, 232, 0.5)   50%,
-          rgba(245, 240, 232, 0.648) 60%,
-          rgba(245, 240, 232, 0.784) 70%,
-          rgba(245, 240, 232, 0.896) 80%,
-          rgba(245, 240, 232, 0.972) 90%,
-          rgba(245, 240, 232, 1)     100%);
+          rgb(var(--hero-fade-rgb) / 0)     0%,
+          rgb(var(--hero-fade-rgb) / 0.028) 10%,
+          rgb(var(--hero-fade-rgb) / 0.104) 20%,
+          rgb(var(--hero-fade-rgb) / 0.216) 30%,
+          rgb(var(--hero-fade-rgb) / 0.352) 40%,
+          rgb(var(--hero-fade-rgb) / 0.5)   50%,
+          rgb(var(--hero-fade-rgb) / 0.648) 60%,
+          rgb(var(--hero-fade-rgb) / 0.784) 70%,
+          rgb(var(--hero-fade-rgb) / 0.896) 80%,
+          rgb(var(--hero-fade-rgb) / 0.972) 90%,
+          rgb(var(--hero-fade-rgb) / 1)     100%);
       }
 
       .hero-deity-stage {
