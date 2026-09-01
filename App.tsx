@@ -425,6 +425,14 @@ const FAHUI_PATH = '/fahui';
 const isFahuiUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === FAHUI_PATH;
 
+/**
+ * 天上聖母經的網址。經文與註解是要分享出去讓人讀的內容，
+ * 沒有網址就只能靠「進站→開選單→點一下」，貼不到 LINE 上。
+ */
+const SCRIPTURE_PATH = '/scripture';
+const isScriptureUrl = (): boolean =>
+  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_PATH;
+
 const VOLUNTEER_PATH = '/volunteer';
 const isVolunteerUrl = (): boolean =>
   typeof window !== 'undefined'
@@ -498,7 +506,7 @@ const App: React.FC = () => {
       || new URLSearchParams(window.location.search).has('volunteer'));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [showScripture, setShowScripture] = useState(false);
+  const [showScripture, setShowScripture] = useState(isScriptureUrl);
   const [page, setPage] = useState<SitePage>(pageFromPath);
   // 全站的進場與視差引擎（掛一次，掃全document）。元素只要掛 .sr / .sr-figure / .sr-counter
   useScrollMotion();
@@ -523,7 +531,7 @@ const App: React.FC = () => {
   // 正式官網網域（heshengtan.tw）的**根路徑**一律顯示官網首頁，見 OFFICIAL_HOSTS。
   // 初始值與 popstate 共用這一個函式；分開寫過會導致按上一頁被報名表吃掉。
   const shouldShowFahui = (): boolean =>
-    FAHUI_LANDING && !adminEntry && !isVolunteerUrl()
+    FAHUI_LANDING && !adminEntry && !isVolunteerUrl() && !isScriptureUrl()
     && (isFahuiUrl() || (!isOfficialHost() && pageFromPath() === 'home'));
   const [showFahui, setShowFahui] = useState(shouldShowFahui);
   const [showVolunteer, setShowVolunteer] = useState(volunteerEntry);
@@ -546,10 +554,16 @@ const App: React.FC = () => {
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
     };
-    document.title = showFahui
+    // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
+    // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
+    document.title = showScripture
+      ? '天上聖母經｜經文、註解與故事｜台北古亭和聖壇'
+      : showVolunteer
+      ? '志工報名｜台北古亭和聖壇'
+      : showFahui
       ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
       : titles[page];
-  }, [showFahui, page]);
+  }, [showScripture, showVolunteer, showFahui, page]);
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);
@@ -578,6 +592,23 @@ const App: React.FC = () => {
    * 這是刻意的：上一頁本來就該回到剛才看的東西。
    */
   /**
+   * 開啟聖母經，並把網址推成 /scripture。
+   * 不推網址就沒得分享，而且重新整理會掉回首頁。
+   */
+  const openScripture = () => {
+    if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== SCRIPTURE_PATH) {
+      window.history.pushState({}, '', SCRIPTURE_PATH);
+    }
+    setShowScripture(true);
+  };
+
+  /** 從聖母經返回。與 closeFahui 同樣要把網址推回 `/`，否則重新整理又回到經文。 */
+  const closeScripture = () => {
+    setShowScripture(false);
+    goToPage('home');
+  };
+
+  /**
    * 開啟報名表，並把網址推成 /fahui。
    * 不推網址的話報名表就沒有可分享的位置，重新整理也會掉回首頁。
    */
@@ -597,6 +628,7 @@ const App: React.FC = () => {
     const onPop = () => {
       const vol = isVolunteerUrl();
       setShowVolunteer(vol);
+      setShowScripture(isScriptureUrl());
       setShowFahui(shouldShowFahui());
     };
     window.addEventListener('popstate', onPop);
@@ -1413,8 +1445,8 @@ const App: React.FC = () => {
   // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
   const hideLineFloat = page === 'home' && !pastHero;
 
-  // 追蹤用的「目前頁面」：報名表與聖母經等畫面沒有各自的網址，
-  // 給它們固定代稱，後台報表才分得出訪客實際看的是哪一頁。
+  // 追蹤用的「目前頁面」。報名表與聖母經現在各有網址（/fahui、/scripture），
+  // 但它們是 state 不是 PAGE_PATHS 的一員，所以仍要在這裡明確對應。
   const analyticsPath =
     showScripture ? '/scripture'
     : showVolunteer ? '/volunteer'
@@ -1425,7 +1457,7 @@ const App: React.FC = () => {
   if (showScripture) {
     return (<>
       <Analytics path={analyticsPath} />
-      <Suspense fallback={<PageLoading />}><ScripturePage onBack={() => setShowScripture(false)} /></Suspense>
+      <Suspense fallback={<PageLoading />}><ScripturePage onBack={closeScripture} /></Suspense>
     </>);
   }
 
@@ -1541,7 +1573,7 @@ const App: React.FC = () => {
                         為什麼不提到最外層那排：實測 1024px 時導覽列已經超出 4px，
                         再加一個項目一定擠爆——要提上去得先拿掉一個現有項目。 */}
                     <button
-                      onClick={() => { setShowScripture(true); setMoreOpen(false); }}
+                      onClick={() => { openScripture(); setMoreOpen(false); }}
                       className="block w-full text-left px-4 py-3 text-sm font-serif font-bold text-[#3D2800] bg-temple-gold/30 border-l-2 border-temple-gold hover:bg-temple-gold/40 transition-colors"
                     >
                       天上聖母經
@@ -1666,15 +1698,32 @@ const App: React.FC = () => {
                     </a>
                   ))}
                 </div>
-                <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
               </>
             )}
+            {/* 會員中心跟社群放同一組：兩者都是「工具」，導覽項目是另一回事，
+                這也與桌機導覽列右上角的排法一致。
+                原本擺在選單最底下，項目一多就被 max-h-[80vh] 推到要捲動才看得到
+                ——已登入的信眾找自己的紀錄得先捲到底，那不合理。
+                **必須放在社群的條件式之外**：後台把社群全部清空時
+                （visibleSocials 回傳空陣列），會員入口不能跟著消失。
+                做成置中的小膠囊而不是滿版按鈕：滿版會跟下面那條金色的聖母經
+                搶視覺重量，而聖母經是廟方指定要最醒目的。 */}
+            <div className="flex justify-center pb-1">
+              <button
+                onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-[#7C5C1E] border border-temple-gold/60 hover:bg-temple-gold/15 hover:border-temple-gold transition-colors"
+              >
+                <UserIcon className="w-4 h-4" aria-hidden="true" />
+                {member ? '會員中心' : '會員登入'}
+              </button>
+            </div>
+            <div className="h-px bg-[#C49820]/30 my-2 mx-4" />
             {/* 天上聖母經放在選單「最上方」（社群之下、導覽項目之上）。
                 這是經典內容不是服務項目，廟方要凸顯它；原本擺在最底下、
                 還被 max-h 裁掉過（見上方註解），等於藏起來。
                 金底＋左側金條＋襯線字，與下面那排純文字項目明顯分開。 */}
             <button
-              onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
+              onClick={() => { openScripture(); setIsMenuOpen(false); }}
               className="block w-full text-left px-4 py-3.5 rounded-lg text-base font-serif font-bold text-[#3D2800] bg-temple-gold/30 border-l-4 border-temple-gold hover:bg-temple-gold/40 transition-colors"
             >
               天上聖母經
@@ -1707,13 +1756,6 @@ const App: React.FC = () => {
                 {item.label}
               </button>
             ))}
-            <button
-              onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
-              className="w-full px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-gold/50 hover:bg-temple-gold/10 flex items-center gap-2"
-            >
-              <UserIcon className="w-5 h-5" aria-hidden="true" />
-              {member ? '會員中心' : '會員登入'}
-            </button>
 
 
           </div>

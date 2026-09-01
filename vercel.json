@@ -25,6 +25,10 @@
       "destination": "/deities.html"
     },
     {
+      "source": "/scripture",
+      "destination": "/scripture.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
