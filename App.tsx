@@ -1689,37 +1689,37 @@ const App: React.FC = () => {
               圖示做成 44px 的方塊（比 WCAG 的 24px 寬鬆）：手機選單是拇指操作，
               而且這幾個圖示彼此相鄰，太小容易點錯隔壁那個。
             */}
-            {visibleSocials(social).length > 0 && (
-              <>
-                <div className="flex items-center justify-center gap-2 pb-1">
-                  {visibleSocials(social).map(({ key, label, url, Icon }) => (
-                    <a
-                      key={key}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => { if (key === 'lineUrl') trackLine('mobile-menu'); setIsMenuOpen(false); }}
-                      aria-label={label}
-                      className="w-11 h-11 flex items-center justify-center rounded-full text-[#7C5C1E] border border-[#C49820]/40 hover:bg-[#C49820]/15 hover:text-temple-red transition-colors"
-                    >
-                      <Icon className="w-5 h-5" />
-                    </a>
-                  ))}
-                </div>
-              </>
-            )}
-            {/* 會員中心跟社群放同一組：兩者都是「工具」，導覽項目是另一回事，
-                這也與桌機導覽列右上角的排法一致。
-                原本擺在選單最底下，項目一多就被 max-h-[80vh] 推到要捲動才看得到
-                ——已登入的信眾找自己的紀錄得先捲到底，那不合理。
-                **必須放在社群的條件式之外**：後台把社群全部清空時
-                （visibleSocials 回傳空陣列），會員入口不能跟著消失。
-                做成置中的小膠囊而不是滿版按鈕：滿版會跟下面那條金色的聖母經
-                搶視覺重量，而聖母經是廟方指定要最醒目的。 */}
-            <div className="flex justify-center pb-1">
+            {/* 社群與會員中心同一排（廟方要求）。
+                兩者都是「工具」，導覽項目是另一回事——桌機導覽列右上角也是這樣排。
+
+                **用 flex-wrap 而不是硬擠成一排**：4 個 44px 圖示＋間距約 200px、
+                會員膠囊約 112px，合計約 320px。375 的手機可用寬 343px 塞得下，
+                但 320px 的舊機型會溢出。wrap 讓它塞得下就一排、塞不下自動折兩排，
+                不必為了排版把觸控範圍縮小。
+                圖示維持 44px（WCAG 最小 24px，這裡放寬到 44）：手機選單是拇指操作，
+                而且圖示彼此相鄰，太小容易點錯隔壁那個。
+
+                **整排不要放進「有社群才渲染」的條件式**：後台把社群清空時
+                visibleSocials 回傳空陣列，會員入口不能跟著消失；
+                這一排至少還有會員鈕，不會變成空的。 */}
+            <div className="flex flex-wrap items-center justify-center gap-2 pb-1">
+              {visibleSocials(social).map(({ key, label, url, Icon }) => (
+                <a
+                  key={key}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => { if (key === 'lineUrl') trackLine('mobile-menu'); setIsMenuOpen(false); }}
+                  aria-label={label}
+                  className="w-11 h-11 flex items-center justify-center rounded-full text-[#7C5C1E] border border-[#C49820]/40 hover:bg-[#C49820]/15 hover:text-temple-red transition-colors"
+                >
+                  <Icon className="w-5 h-5" />
+                </a>
+              ))}
+              {/* 高度對齊 44px 的圖示，同一排才不會高低不齊 */}
               <button
                 onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-[#7C5C1E] border border-temple-gold/60 hover:bg-temple-gold/15 hover:border-temple-gold transition-colors"
+                className="h-11 inline-flex items-center gap-2 px-4 rounded-full text-sm font-medium text-[#7C5C1E] border border-temple-gold/60 hover:bg-temple-gold/15 hover:border-temple-gold transition-colors"
               >
                 <UserIcon className="w-4 h-4" aria-hidden="true" />
                 {member ? '會員中心' : '會員登入'}
