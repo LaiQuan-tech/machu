@@ -355,7 +355,15 @@ const HERO_SLIDESHOW = false;
  *   手機（未加 sm: 的那組）用 vw、桌機（sm:）用 vh。
  *   手機用 vw 是因為痛點是「三尊要貼齊左右兩邊」：用 vh 算出來的總寬
  *   只有在某個螢幕比例下剛好等於螢幕寬，換一支比較寬的手機兩邊就空一塊。
- *   目前手機總寬約 103vw，左右各裁掉 1.7vw。
+ *
+ *   **但手機那組也要包一層 `min(A vw, A×0.529 vh)`（八個值一起改）。**
+ *   stage 是 `h-[121vw] max-h-[64vh]`：畫面偏矮偏寬時（高寬比 < 1.89，例如
+ *   瀏覽器網址列吃掉高度之後）`max-h` 會把 stage 壓短，但神尊是純 vw、不跟著縮，
+ *   最高的那尊就被切頭——**被切的正好是主神**（廟方回報，實測 479×816 時
+ *   三媽的冠帽被切掉 19px）。
+ *   係數 0.529 = 64/121，也就是 stage 的上限與基準高的比值；用它換算之後，
+ *   `max-h` 一生效整組等比縮小，神尊與 stage 的比例維持不變。
+ *   實測 479×816／393×660／360×640／430×932／375×812 五種比例，主神頂被裁都是 0。
  *
  *   桌機那組每個 vh 都包一層 `min(A vh, A×1.10 vw)`（**1.10 這個比例八個值要一起改**）。
  *   為什麼需要：平板直立（iPad 第十代 820×1180）時螢幕又高又窄，純 vh 會讓整組寬過畫面，
@@ -395,20 +403,20 @@ const heroSrc = (file: string): string => {
 const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
   // 左前：濟公活佛。臉最低，疊在三媽之前
   { src: heroSrc('hero-jigong.webp'), fallback: heroSrc('hero-jigong.png'), name: '濟公活佛',
-    size: 'h-[74vw] max-w-[72vw] sm:h-[min(57vh,62.7vw)] sm:max-w-none',
-    drop: '-mb-[8vw] sm:mb-[calc(min(6vh,6.6vw)*-1)]', layer: 'z-[2]' },
+    size: 'h-[min(74vw,39.14vh)] max-w-[72vw] sm:h-[min(57vh,62.7vw)] sm:max-w-none',
+    drop: 'mb-[calc(min(8vw,4.23vh)*-1)] sm:mb-[calc(min(6vh,6.6vw)*-1)]', layer: 'z-[2]' },
   // 中後：天上聖母三媽，本壇主神。最高最大，但**疊在最底層**——廟方要的構圖是
   // 「二媽與濟公在三媽面前」，她的身體被前面兩尊擋住，只露出頭與冠帽。
   // 優先權與 index.html 的 preload 都給她（兩邊不一致等於預載了不是主角的那張）
   { src: heroSrc('hero-sanma.webp'), fallback: heroSrc('hero-sanma.png'), name: '天上聖母三媽',
-    size: 'h-[128vw] max-w-[88vw] sm:h-[min(98vh,107.8vw)] sm:max-w-none',
-    drop: '-mb-[15vw] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
-    gap: '-ml-[24vw] sm:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
+    size: 'h-[min(128vw,67.70vh)] max-w-[88vw] sm:h-[min(98vh,107.8vw)] sm:max-w-none',
+    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
+    gap: 'ml-[calc(min(24vw,12.69vh)*-1)] sm:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
   // 右前：天上聖母二媽（黃袍金冠）。臉與濟公大致齊高，兩尊一起框住後面的主神
   { src: heroSrc('hero-erma.webp'), fallback: heroSrc('hero-erma.png'), name: '天上聖母二媽',
-    size: 'h-[99vw] max-w-[76vw] sm:h-[min(76vh,83.6vw)] sm:max-w-none',
-    drop: '-mb-[15vw] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
-    gap: '-ml-[31vw] sm:ml-[calc(min(24vh,26.4vw)*-1)]', layer: 'z-[3]' },
+    size: 'h-[min(99vw,52.36vh)] max-w-[76vw] sm:h-[min(76vh,83.6vw)] sm:max-w-none',
+    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
+    gap: 'ml-[calc(min(31vw,16.40vh)*-1)] sm:ml-[calc(min(24vh,26.4vw)*-1)]', layer: 'z-[3]' },
 ];
 
 // 志工報名有自己的網址 /volunteer：可單獨分享，瀏覽器上一頁也能正確返回。
