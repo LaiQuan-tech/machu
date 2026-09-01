@@ -35,14 +35,11 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="台北古亭和聖壇" />
-    <!-- og:url 刻意跟 canonical 不同，兩者服務的對象不一樣：
-         canonical 是給搜尋引擎的「正版網址」＝官網根路徑；
-         og:url 是分享卡片要導去的位置——這份靜態 HTML 的 title／description／image
-         都是法會報名版（宣傳連結分享到 LINE 要看到報名的標題），所以卡片點下去
-         就該落在報名表，也就是 /fahui（見 App.tsx 的 FAHUI_PATH）。
-         填成根路徑的話，從 LINE 點進來會落到官網首頁、還要自己找報名按鈕。
-         **對外一律用 heshengtan.tw**；machu-five.vercel.app 是測試網域，不要外流。
-         收件結束、FAHUI_LANDING 改 false 之後，這裡要換回 https://heshengtan.tw/。 -->
+    <!-- og:url 刻意跟 canonical 不同：canonical 是給搜尋引擎的正版網址＝官網根路徑；
+         og:url 是分享卡片點下去要到的地方。這份靜態 HTML 的 title／description／image
+         都是法會報名版，所以卡片就該落在報名表 /fahui（見 App.tsx 的 FAHUI_PATH）。
+         收件結束、FAHUI_LANDING 改 false 之後，這裡要換回 https://heshengtan.tw/。
+         （完整緣由寫在 App.tsx 的 OFFICIAL_HOSTS 註解，那份不會送到瀏覽器。） -->
     <meta property="og:url" content="https://heshengtan.tw/fahui" />
     <meta property="og:locale" content="zh_TW" />
 
