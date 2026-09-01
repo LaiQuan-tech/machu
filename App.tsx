@@ -345,20 +345,33 @@ const HERO_SLIDESHOW = false;
  *   那是既有問題，成因是 stage 掛 shrink-0、左欄是 flex-1，按鈕又是 whitespace-nowrap。
  *   要修得把 Hero 的兩欄斷點從 sm 提到 lg，讓平板直立沿用手機的上下堆疊版型。
  */
+/**
+ * 神尊圖網址加上內容版本戳記（雜湊由 vite.config.ts 在建置時算好注入）。
+ * public/ 的檔案 Vite 不會加指紋，檔名永遠一樣——換照片時若沿用同一個網址，
+ * 沒老實照 must-revalidate 做的那一層就會餵舊圖給信眾。2026-09-02 踩過：
+ * 畫面上同時出現舊的二媽與新的三媽，而那兩版剛好是同一尊，看起來像兩尊並排。
+ * index.html 的 preload 由 vite.config.ts 的 plugin 補上同一個版號，兩邊要一致。
+ */
+declare const __HERO_V__: Record<string, string>;
+const heroSrc = (file: string): string => {
+  const v = __HERO_V__?.[file];
+  return v ? `/${file}?v=${v}` : `/${file}`;
+};
+
 const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
   // 左前：濟公活佛。臉最低，疊在三媽之前
-  { src: '/hero-jigong.webp', fallback: '/hero-jigong.png', name: '濟公活佛',
+  { src: heroSrc('hero-jigong.webp'), fallback: heroSrc('hero-jigong.png'), name: '濟公活佛',
     size: 'h-[74vw] max-w-[72vw] sm:h-[min(57vh,62.7vw)] sm:max-w-none',
     drop: '-mb-[8vw] sm:mb-[calc(min(6vh,6.6vw)*-1)]', layer: 'z-[2]' },
   // 中後：天上聖母三媽，本壇主神。最高最大，但**疊在最底層**——廟方要的構圖是
   // 「二媽與濟公在三媽面前」，她的身體被前面兩尊擋住，只露出頭與冠帽。
   // 優先權與 index.html 的 preload 都給她（兩邊不一致等於預載了不是主角的那張）
-  { src: '/hero-sanma.webp',  fallback: '/hero-sanma.png',  name: '天上聖母三媽',
+  { src: heroSrc('hero-sanma.webp'), fallback: heroSrc('hero-sanma.png'), name: '天上聖母三媽',
     size: 'h-[128vw] max-w-[88vw] sm:h-[min(98vh,107.8vw)] sm:max-w-none',
     drop: '-mb-[15vw] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
     gap: '-ml-[24vw] sm:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
   // 右前：天上聖母二媽（黃袍金冠）。臉與濟公大致齊高，兩尊一起框住後面的主神
-  { src: '/hero-erma.webp',   fallback: '/hero-erma.png',   name: '天上聖母二媽',
+  { src: heroSrc('hero-erma.webp'), fallback: heroSrc('hero-erma.png'), name: '天上聖母二媽',
     size: 'h-[99vw] max-w-[76vw] sm:h-[min(76vh,83.6vw)] sm:max-w-none',
     drop: '-mb-[15vw] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
     gap: '-ml-[31vw] sm:ml-[calc(min(24vh,26.4vw)*-1)]', layer: 'z-[3]' },
@@ -1617,7 +1630,7 @@ const App: React.FC = () => {
             前一版的金色祥雲織錦是 /hero-clouds.jpg，檔案留著，要換回只改這一行。
             注意排序：反光層必須在下面那道深色遮罩「之前」，
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。 */}
-        <SilkSheen src="/hero-gold.jpg" tone="gold" className="absolute inset-0 z-0 overflow-hidden" />
+        <SilkSheen src={heroSrc('hero-gold.jpg')} tone="gold" className="absolute inset-0 z-0 overflow-hidden" />
         {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
             金箔底很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把金壓濁了。
             所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓，讓金完整亮出來——
