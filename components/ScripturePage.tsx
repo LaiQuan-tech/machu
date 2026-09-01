@@ -282,10 +282,32 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         .sp-watermark-active { color:rgba(184,145,90,.2) !important; }
         /* ── Mobile ── */
         @media (max-width: 767px) {
-          /* 圖片包裝器全寬，讓繪圖永遠在最上方 */
-          .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* 手機內容方向強制改 column：繪圖在上，經文與註解在下 */
-          .sp-section-inner { flex-direction: column !important; }
+          /* ── 插圖與經文並排，塞不下才把插圖擠到上面 ──
+             舊版是 .sp-section-inner 強制 flex-direction:column：不管經文多短，
+             插圖一律在最上方，短的經文旁邊就留一大片空白（廟方回報）。改成由內容決定。
+
+             關鍵是 .sp-text 用 display:contents 把「文字」那一層的框拿掉，讓它的三個
+             子元素（經文／分隔線／註解）升格成 .sp-section-inner 的 flex 項目。
+             插圖與**經文**因此成為同一層，才可能並排；分隔線與註解各自吃滿一行。
+             桌機不受影響（這段只在 767px 以下）。
+
+             排版規則：
+               經文  flex:0 0 auto   直排的自然寬度（幾欄就是幾欄），不縮
+               插圖  flex:1 1 140px  吃掉經文剩下的空間；140px 同時是換行門檻——
+                     經文寬到 140+經文 > 容器時，flex-wrap 就把插圖擠到上一行
+               註解  flex-basis:100%  永遠自己一行
+             插圖單獨一行時用 max-width 60% 收住，不讓它撐滿整個寬度。
+
+             注意：這整段 CSS 在 JSX 的樣板字串裡，**註解不要寫反引號**，
+             會把字串截斷（2026-09-02 踩過）。 */
+          .sp-text { display: contents; }
+          .sp-section-inner { align-items: flex-end !important; }
+          .sp-img-float { flex: 1 1 140px !important; width: auto !important;
+                          min-width: 0 !important; max-width: 60% !important;
+                          align-self: center !important; }
+          .sp-parallax-wrap { width:100% !important; }
+          .sp-verse { flex: 0 0 auto !important; }
+          .sp-rule, .sp-note { flex: 0 0 100% !important; }
           /* 手機版入場：小幅 translateX（不用 110vw，否則 getBoundingClientRect 會偏移） */
           .sp-left  { opacity:0; transform:translateX(-40px) scale(0.96) !important;
                       transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
@@ -453,8 +475,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                   </div>
                 )}
 
-                {/* 文字 */}
-                <div style={{ flex: 1, minWidth: 200 }}>
+                {/* 文字。手機把這一層用 display:contents 攤掉（見樣式表的 .sp-text），
+                    讓經文與插圖變成同一層的 flex 項目、可以並排。 */}
+                <div className="sp-text" style={{ flex: 1, minWidth: 200 }}>
                   {/* sp-verse：scroll-reveal 時加 sp-in → .verse-char 逐字飄入 */}
                   <div className="sp-verse" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
                     <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
@@ -465,8 +488,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                       )}
                     </div>
                   </div>
-                  <div className="sp-up sp-d2" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
-                  <div className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
+                  <div className="sp-up sp-d2 sp-rule" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
+                  <div className="sp-up sp-d3 sp-note" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
                     {renderAnnotation(section.annotation)}
                   </div>
                 </div>

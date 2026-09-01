@@ -108,6 +108,10 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。
 - **選單裡要「凸顯」某一項時，不要沿用「目前所在頁」那組 `bg-temple-gold/15 + text-temple-red`**：金底在導覽列本來代表「你在這裡」，語意會打架；而且那組實測只有 4.54:1，比旁邊的純文字項目（11.49:1）還難讀——凸顯的那一項反而最看不清楚。用更濃的金底配深字（`bg-temple-gold/30 + text-[#3D2800]`，量到 9.22:1）。
   **桌機導覽列已經沒有空間**：實測 1024px 時那一列用掉 949px、可用 945px，已經超出 4px。要再加一個頂層項目，必須先拿掉一個現有的。天上聖母經因此是放在「更多」下拉的最上方，不是外層。
+- **聖母經內頁的插圖位置由內容決定（`components/ScripturePage.tsx`）**：手機版原本 `.sp-section-inner { flex-direction: column }`，不管經文多短插圖一律在最上方，短經文旁邊就留一大片空白（廟方回報）。現在插圖與**經文**並排、塞不下才被擠到上面。
+  關鍵是 `.sp-text { display: contents }`：把「文字」那一層的框拿掉，讓經文／分隔線／註解升格成 `.sp-section-inner` 的 flex 項目——插圖與經文因此同層才可能並排，註解則用 `flex-basis:100%` 自己一行。桌機不受影響（規則只在 767px 以下）。
+  換行門檻＝插圖的 `flex-basis`（140px）＋間距：實測 375px 螢幕上經文寬 ≤158 並排、≥189 插圖被擠到上面。改門檻就改那個 basis。
+- **`ScripturePage.tsx` 的 CSS 寫在 JSX 的樣板字串裡，註解**不能**出現反引號**：會直接把字串截斷，型別檢查噴一長串 `'}' expected`，但錯誤位置指向別處，很難一眼看出是註解害的（2026-09-02 踩過）。
 - **Tailwind preflight 的預設邊框色是 gray-200**（`rgb(229,231,235)`，看起來就是白線）。所以**不要靠加減 `border-*` class 來決定「有沒有線」**：class 一移除顏色立刻跳回那個灰白色，而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——那 300ms 就是一條很明顯的白線（導覽列踩過，廟方回報「往下滑 menu 下緣會出現白線」）。正確作法是**邊框常駐、只換顏色**：`border-b` 一直掛著，在 `border-transparent` 與目標色之間過渡。
 - **導覽高亮（`handleScroll` 的捲動高亮）**：判定線用 `innerHeight*0.35`（夾在 120–300），不要改回固定 120px——`section[id]` 的 `scroll-margin-top` 是 80px，捲到定位時區塊頂端就在 80，跟 120 只差 40px，平滑捲動少捲 41px 高亮就退回上一個區塊（症狀：點「祀奉神尊」卻亮「關於我們」）。另有 `navLockRef`：點導覽後的平滑捲動期間停掉捲動高亮，否則途中每經過一個區塊就改一次。換頁的 `window.scrollTo` 要指定 `behavior:'instant'`，CSS 有全域 `scroll-behavior: smooth`。
 
