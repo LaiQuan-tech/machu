@@ -282,9 +282,13 @@ const FAHUI_LANDING = true;
 /**
  * 正式官網的網域。**在這些網域上，根路徑一律顯示官網首頁，不會被報名表蓋掉。**
  *
- * 為什麼要分兩邊：法會的宣傳連結全部發的是 machu-five.vercel.app，
- * 那個網址必須維持「一點進來就是報名表」；而 heshengtan.tw 是正式官網，
- * 點進來要看到首頁。同一份程式、兩種行為，差別只在網域。
+ * 為什麼要分兩邊：早期的法會宣傳連結發的是 machu-five.vercel.app（Vercel 預設網域），
+ * 那個網址必須維持「一點進來就是報名表」，舊連結才不會壞；而 heshengtan.tw 是正式官網，
+ * 根路徑點進來要看到首頁。同一份程式、兩種行為，差別只在網域。
+ *
+ * **對外一律用 heshengtan.tw**（廟方 2026-09-02 明確要求）：machu-five 是測試網域，
+ * 不要再出現在 og:url、結構化資料或任何新發出去的連結。官網的報名網址是
+ * `/fahui`（見 FAHUI_PATH），那是現在唯一該對外宣傳的位置。
  *
  * 用「官網網域清單」而不是「報名網域清單」的理由：漏列的情況要往安全的一邊倒。
  * 新的預覽部署（machu-xxxx.vercel.app）沒列到就維持報名表，跟宣傳連結一致；
@@ -409,6 +413,18 @@ const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: s
 
 // 志工報名有自己的網址 /volunteer：可單獨分享，瀏覽器上一頁也能正確返回。
 // 放模組層級是因為 useState 的初始值會在元件內的 const 宣告之前就呼叫到它。
+/**
+ * 法會報名表在**官網**上的網址。
+ *
+ * 為什麼需要：報名表本來只在非官方網域（machu-five.vercel.app）的根路徑顯示，
+ * 所以宣傳連結、og:url 都只能發那個測試網址。廟方要求對外一律用 heshengtan.tw，
+ * 於是給報名表一個自己的路徑——這樣官網就自給自足，不必再對外露出測試網域。
+ * 不動原本「非官方網域根路徑也顯示報名表」的行為，舊的分享連結才不會壞。
+ */
+const FAHUI_PATH = '/fahui';
+const isFahuiUrl = (): boolean =>
+  typeof window !== 'undefined' && stripSlash(window.location.pathname) === FAHUI_PATH;
+
 const VOLUNTEER_PATH = '/volunteer';
 const isVolunteerUrl = (): boolean =>
   typeof window !== 'undefined'
@@ -500,11 +516,15 @@ const App: React.FC = () => {
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
-  // 法會收件期間，根路徑直接顯示報名表蓋住官網首頁；主官網上線時把 FAHUI_LANDING 改成 false。
+  // 法會收件期間顯示報名表的兩個入口：
+  //   (1) /fahui —— 官網自己的報名網址，對外宣傳一律用這個（見 FAHUI_PATH）
+  //   (2) 非官方網域的根路徑 —— 舊的分享連結還在流傳，維持原樣不要動
   // 服務分頁（/booking 等）有自己的網址，不受此影響——否則上一頁／下一頁會被報名表吃掉。
-  // 正式官網網域（heshengtan.tw）例外：那裡一律顯示官網首頁，見 OFFICIAL_HOSTS。
+  // 正式官網網域（heshengtan.tw）的**根路徑**一律顯示官網首頁，見 OFFICIAL_HOSTS。
+  // 初始值與 popstate 共用這一個函式；分開寫過會導致按上一頁被報名表吃掉。
   const shouldShowFahui = (): boolean =>
-    FAHUI_LANDING && !isOfficialHost() && !adminEntry && !isVolunteerUrl() && pageFromPath() === 'home';
+    FAHUI_LANDING && !adminEntry && !isVolunteerUrl()
+    && (isFahuiUrl() || (!isOfficialHost() && pageFromPath() === 'home'));
   const [showFahui, setShowFahui] = useState(shouldShowFahui);
   const [showVolunteer, setShowVolunteer] = useState(volunteerEntry);
 
@@ -557,6 +577,17 @@ const App: React.FC = () => {
    * 按瀏覽器上一頁會回到報名表（popstate 會重新跑 `shouldShowFahui()`），
    * 這是刻意的：上一頁本來就該回到剛才看的東西。
    */
+  /**
+   * 開啟報名表，並把網址推成 /fahui。
+   * 不推網址的話報名表就沒有可分享的位置，重新整理也會掉回首頁。
+   */
+  const openFahui = () => {
+    if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== FAHUI_PATH) {
+      window.history.pushState({}, '', FAHUI_PATH);
+    }
+    setShowFahui(true);
+  };
+
   const closeFahui = () => {
     setShowFahui(false);
     goToPage('home');
@@ -1706,7 +1737,7 @@ const App: React.FC = () => {
             {/* 只在 iOS 出現：那裡的陀螺儀要使用者手勢才給權限 */}
             <SilkTiltPrompt />
             <button
-              onClick={() => setShowFahui(true)}
+              onClick={openFahui}
               // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。
               // 先前的金底按鈕與 Hero 的金色織錦同色系，等於埋進背景。
               className="hero-primary btn-sutra pointer-events-auto px-10 py-4 font-bold transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg tracking-wider whitespace-nowrap"
@@ -2722,7 +2753,7 @@ const App: React.FC = () => {
                 <p className="text-amber-300 text-xs mt-1">超渡祖先・解冤親債・贊普・地基主等 7 種項目</p>
               </div>
               <button
-                onClick={() => setShowFahui(true)}
+                onClick={openFahui}
                 className="w-full sm:w-auto shrink-0 px-7 py-3.5 bg-white text-amber-800 font-bold rounded-xl hover:bg-amber-50 active:scale-95 transition-all shadow-md text-sm"
               >
                 立即線上報名 →
