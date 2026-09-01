@@ -431,10 +431,13 @@ if (site) {
  * 都是建置當下從資料庫抓的快照，所以「這份快照產生於今天」是誠實的說法。
  */
 {
-  // **本地時區組字串，不要用 toISOString().slice(0,10)**——那是 UTC，
-  // 台灣早上 8 點前會少一天（CLAUDE.md 有記，我還是踩了一次）。
-  const d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // **明確釘住 Asia/Taipei，不要用 toISOString()，也不要靠機器的本地時區。**
+  // toISOString() 是 UTC，台灣早上 8 點前會少一天（CLAUDE.md 有記，我第一版還是踩了）。
+  // 但改成「本地時區」也不夠：那是**建置機器**的本地時區，而 Vercel 的
+  // 建置機跑在 UTC——所以本機產出 09-02、線上卻是 09-01，只有部署到正式站
+  // 才看得出來（實測踩到）。前端的日期規則講的是使用者的裝置（在台灣），
+  // 建置腳本沒有這個前提，必須自己指定時區。
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
   const entries = [{ path: '/', priority: '1.0' }, ...ROUTES];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
