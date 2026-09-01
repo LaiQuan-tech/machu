@@ -149,6 +149,24 @@ const ENABLE_REPAIR = false;
  */
 const ENABLE_BULLETIN = true;
 
+/**
+ * 公告的兩種標籤。**全站只有這兩個常數，不要在渲染處另寫顏色。**
+ *
+ * 原本分類是「一類一個 Tailwind 預設色」（gray/blue/orange/purple/yellow-100），
+ * 其中預設的 gray-100 是 #F3F4F6，疊在卡片的 temple-bg #F5F0E8 上幾乎同色——
+ * 廟方回報「分類顯示是白色，很不明顯」。而且那五個色跟本站的金／褐／米完全無關，
+ * 正是 CLAUDE.md 說的「不要各寫各的顏色」。
+ *
+ * 改成單一霧金：分類名稱本身已經寫在標籤上，上方又有篩選鈕，
+ * 顏色再去編碼一次沒有增加資訊，只是讓版面變花。
+ * 層級靠「實心 vs 霧面」拉開，不靠色相：
+ *   置頂 = 實心褐（與篩選鈕選中態同一種處理），置頂本來就是要被看見
+ *   分類 = 霧金描邊，安靜地待著
+ * 對比都量過（見 CLAUDE.md），不要把霧金的透明度往下調。
+ */
+const TAG_PINNED = 'bg-temple-red text-white';
+const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
+
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 
 const pageFromPath = (): SitePage => {
@@ -1729,7 +1747,7 @@ const App: React.FC = () => {
 
         {/* 底部的倒三角切角已移除，改成平的收邊：
             用一道極短的漸層讓織錦自然過渡到下一段的米白，不做幾何造型。 */}
-        <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-b from-transparent to-temple-bg pointer-events-none" />
+        <div className="hero-bottom-fade absolute bottom-0 inset-x-0 pointer-events-none" />
       </section>
 
 {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
@@ -1795,17 +1813,11 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         {bulletin.isPinned && (
-                          <span className="inline-flex items-center gap-1 bg-temple-gold/20 text-temple-gold px-2 py-0.5 rounded-full text-xs font-bold">
-                            <Pin className="w-3 h-3" /> 置頂
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${TAG_PINNED}`}>
+                            <Pin className="w-3 h-3" aria-hidden="true" /> 置頂
                           </span>
                         )}
-                        <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${
-                          bulletin.category === '點燈公告' ? 'bg-orange-100 text-orange-700' :
-                          bulletin.category === '祈福公告' ? 'bg-purple-100 text-purple-700' :
-                          bulletin.category === '問事公告' ? 'bg-blue-100 text-blue-700' :
-                          bulletin.category === '捐獻公告' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
+                        <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${TAG_CATEGORY}`}>
                           {bulletin.category}
                         </span>
                         <span className="text-gray-400 text-sm">

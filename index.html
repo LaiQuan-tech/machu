@@ -202,22 +202,82 @@
       .hero-actions {
         animation: heroActionReveal 800ms 760ms cubic-bezier(0.22, 0.72, 0.28, 1) both;
       }
+      /* ── Hero 底部收邊 ──
+         淡出距離只有這一個變數，背景那道漸層與神尊的遮罩共用它，改一個地方兩邊同步。
+         桌機比手機長，因為同樣的 px 在矮畫面上占比大很多（手機 stage 才 454px 高）。 */
+      :root { --hero-fade: 128px; }
+      @media (max-width: 639px) { :root { --hero-fade: 88px; } }
+
+      /* 直線漸層會看到一條「起點線」：人眼對亮度變化的**轉折**很敏感，
+         線性 alpha 在頭尾各有一個折點，那兩個折點就是看起來不自然的原因。
+         改用 smoothstep（3t²−2t³，兩端斜率為 0）之後起訖都糊掉了。
+         中間那些看似隨便的數字就是 smoothstep 每 10% 取一個點，不要「順手改成等差」。 */
+      .hero-bottom-fade {
+        height: var(--hero-fade);
+        background: linear-gradient(to bottom,
+          rgba(245, 240, 232, 0)     0%,
+          rgba(245, 240, 232, 0.028) 10%,
+          rgba(245, 240, 232, 0.104) 20%,
+          rgba(245, 240, 232, 0.216) 30%,
+          rgba(245, 240, 232, 0.352) 40%,
+          rgba(245, 240, 232, 0.5)   50%,
+          rgba(245, 240, 232, 0.648) 60%,
+          rgba(245, 240, 232, 0.784) 70%,
+          rgba(245, 240, 232, 0.896) 80%,
+          rgba(245, 240, 232, 0.972) 90%,
+          rgba(245, 240, 232, 1)     100%);
+      }
+
       .hero-deity-stage {
         position: relative;
         z-index: 1;
         transform: translate3d(var(--hero-shift-x), var(--hero-shift-y), 0);
         will-change: transform;
-        /* 底部淡出，讓神尊跟背景同一種收邊。
-           為什麼需要：Hero 底那道 h-20 漸層（App.tsx 的 to-temple-bg）是 z-auto，
-           而這一層是 z-index:1 —— 神尊畫在漸層「上面」，結果背景柔和淡進米白、
-           神尊卻被硬切一刀。廟方看到的就是那條線。
+        /* 神尊要跟背景同一種收邊。
+           為什麼需要：Hero 底那道漸層是 z-auto，而這一層是 z-index:1 ——
+           神尊畫在漸層「上面」，結果背景柔和淡進米白、神尊卻被硬切一刀。
            不改 z-index 而改用遮罩，是因為兩個斷點的切線不在同一個地方：
              桌機 切在 Hero 下緣（stage 下緣剛好也在那裡，負邊距把 box 收回來了）
              手機 切在 stage 自己的下緣（overflow-hidden，下面還有報名鈕）
            兩者都是「stage 的下緣」，所以一條規則就同時對得上。
-           80px＝h-20，與背景那道漸層等長，兩者淡出速率才一致。 */
-        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 80px), transparent 100%);
-        mask-image: linear-gradient(to bottom, #000 calc(100% - 80px), transparent 100%);
+
+           色標位置用百分比而不是 calc(100% - var(--hero-fade))：兩種都能正常運作
+           （試過），選百分比是因為它跟著 stage 高度走，不必為手機再寫一組媒體查詢，
+           而且「神尊溶掉多少」本來就該跟神尊自己的高度成比例。
+
+           ⚠ 驗收這一段一定要看截圖。瀏覽器面板的截圖會有擷取競態，
+           進場動畫剛跑完那幾秒可能只拍到一兩尊——那是擷取問題不是版面問題，
+           連拍兩張都完整才算數。反過來也成立：DOM 全部正常不代表畫面正常，
+           opacity、rect、complete 這些數字對遮罩出問題完全無感。
+
+           81% 是「淡出長度 ÷ stage 高度」：桌機 stage 固定 86vh（98vh 高減 12vh 沉），
+           19% ≈ 131px；手機 stage 454px，19% ≈ 86px——跟背景那道 128px／88px
+           幾乎等長，所以兩者看起來是同一種收邊。曲線與 .hero-bottom-fade 對稱
+           （同一組 smoothstep 倒過來），速率不一致的話神尊會比背景早一步消失。 */
+        -webkit-mask-image: linear-gradient(to bottom,
+          rgba(0,0,0,1)     81%,
+          rgba(0,0,0,0.972) 82.9%,
+          rgba(0,0,0,0.896) 84.8%,
+          rgba(0,0,0,0.784) 86.7%,
+          rgba(0,0,0,0.648) 88.6%,
+          rgba(0,0,0,0.5)   90.5%,
+          rgba(0,0,0,0.352) 92.4%,
+          rgba(0,0,0,0.216) 94.3%,
+          rgba(0,0,0,0.104) 96.2%,
+          rgba(0,0,0,0.028) 98.1%,
+          rgba(0,0,0,0)     100%);
+        mask-image: linear-gradient(to bottom,
+          rgba(0,0,0,1)     81%,
+          rgba(0,0,0,0.972) 82.9%,
+          rgba(0,0,0,0.896) 84.8%,
+          rgba(0,0,0,0.784) 86.7%,
+          rgba(0,0,0,0.648) 88.6%,
+          rgba(0,0,0,0.5)   90.5%,
+          rgba(0,0,0,0.352) 92.4%,
+          rgba(0,0,0,0.216) 94.3%,
+          rgba(0,0,0,0.104) 96.2%,
+          rgba(0,0,0,0.028) 98.1%,
+          rgba(0,0,0,0)     100%);
       }
       .hero-deity {
         position: relative;
