@@ -9,6 +9,10 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 
 - **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
   判斷集中在 `shouldShowFahui()`（根路徑＋非後台＋非志工頁才顯示），初始值與 popstate 共用同一個函式；分開寫過會導致按上一頁被報名表吃掉。
+- **天上聖母經的網址是 `/scripture`**（`SCRIPTURE_PATH`，2026-09-02 新增，內容在 `scripture-data.json`，136 段經文＋註解）。跟 `/fahui`、`/volunteer` 同一套模式：初始值看網址、popstate 同步、入口用 `openScripture()` 推網址、返回走 `closeScripture()`。
+  **`shouldShowFahui()` 必須排除 `isScriptureUrl()`**：`/scripture` 在 `pageFromPath()` 眼中是未知路徑會回傳 `'home'`，非官方網域上會因此被判成「根路徑」而顯示報名表，經文就打不開。新增這類路徑時都要記得加排除。
+  **只給網址不預渲染等於半殘**：貼到 LINE 的預覽卡片會沿用靜態 index.html 的法會報名標題。已加進 `scripts/prerender.js` 的 ROUTES、`vercel.json` 的 rewrite（**放在萬用規則之前**）與 `sitemap.xml`。`App.tsx` 的 `document.title` 也要給——聖母經與志工報名有網址但不是 `PAGE_PATHS` 的一員，不明確指定就會沿用法會標題。
+- **手機選單的順序是：社群 → 會員中心 → 天上聖母經 → 導覽項目 → 次要項目**。會員中心原本在最底下，項目一多就被 `max-h-[80vh]` 推到要捲動才看得到。**會員鈕要放在社群的條件式之外**——後台把社群清空時 `visibleSocials` 回傳空陣列，會員入口不能跟著消失。
 - **法會報名表在官網的網址是 `/fahui`**（`FAHUI_PATH`，2026-09-02 新增）。原本報名表只在「非官方網域的根路徑」顯示，所以 heshengtan.tw 上沒有任何網址能直接開它，og:url 與 Event 只好填測試網域。現在 `shouldShowFahui()` 是「`isFahuiUrl()` **或** 原本那條非官方網域規則」，舊分享連結行為完全不變。兩顆「報名普渡法會」按鈕走 `openFahui()`，會把網址推成 `/fahui`——報名表因此可分享、重新整理不會掉回首頁。
   **改這段一定要兩種網域身分各測一遍**：把 `localhost` 暫時加進 `OFFICIAL_HOSTS` 就能在本機驗官方網域那一半，測完務必撤掉（我用 `TEMP-HOSTTEST` 標記並在部署前 grep 確認為 0）。要測的路徑：`/`、`/fahui`、`/booking`、`/volunteer`、`/?admin=1`，外加「點報名鈕→網址變 /fahui→按上一頁」。
 - **志工報名表也上線了**（VolunteerRegistration.tsx，migration：`supabase/migrations/volunteer_registration.sql`）。入口只在**法會報名成功頁**（刻意不放主表單，避免拉低法會報名轉換率）。點入口會把法會表已填的聯絡資料自動帶入（precedence：連結帶入 > 志工草稿 > 法會草稿）。後台「志工報名」分頁可看名單、標記已聯絡、匯出 Excel。只收 5 項基本資料（姓名/電話/地址/生日/LINE），無排班。
