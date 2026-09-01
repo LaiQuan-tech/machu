@@ -8,8 +8,16 @@
     <!-- 法會收件期間：標題與分享預覽改成報名版；收件結束後換回下方註解的官網版。
          這一組與 App.tsx 的 FAHUI_LANDING 是同一件事的兩半，改旗標時記得一起改。
          官網版：台北古亭和聖壇｜問事、祈福點燈與法會服務 -->
-    <title>和聖壇法會線上報名｜太上慈悲普渡禮懺法會</title>
-    <meta name="description" content="太上慈悲普渡禮懺法會，國曆9/13（農曆8/03）舉行。線上填表報名、自動結算金額，超薦拔渡歷代祖先、冤親債主、地基主、嬰靈及動物靈，廣結善緣、消災解厄。" />
+    <!-- title／description 是給搜尋引擎看的「這個網址是什麼」，
+         og:* 是給 LINE／Facebook 分享卡片看的「點下去會看到什麼」。兩者刻意不同：
+         這一份 index.html 同時服務官網首頁（heshengtan.tw/）與法會報名頁，
+         而 **canonical 指的是官網首頁**，所以 title 必須是官網的，不能是報名的——
+         否則 Google 收錄的官網首頁標題會變成「和聖壇法會線上報名」，
+         信眾搜「古亭 媽祖廟」看到的是一場法會的報名頁（2026-09-02 發現並修正）。
+         分享卡片不受影響：LINE／FB 讀的是 og:title，那邊仍是報名版。
+         收件結束、FAHUI_LANDING 改 false 之後，og:* 也一併換回官網版。 -->
+    <title>台北古亭和聖壇｜問事、祈福點燈與法會服務</title>
+    <meta name="description" content="台北市中正區古亭的和聖壇，創立於民國 73 年，主祀天上聖母。提供問事、祈福點燈、法會超薦與神尊參拜，每日開放。捷運古亭站 2 號出口步行約 5 分鐘。" />
     <!-- 網站圖示。全部由 public/logo.png 產生（scripts/build-icons.js），換 logo 時重跑那支就好。
          都鋪了網站底色 #F5F0E8：原始 logo 是紅線稿＋透明背景，深色分頁上會糊在深色裡。 -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -689,7 +697,9 @@
           <li><a href="/booking" style="color:#7C5C1E">預約問事</a>：事業、感情、家運等疑難向神明請示，一對一專人解籤，可線上預約場次，亦接受現場報名。</li>
           <li><a href="/lamps" style="color:#7C5C1E">祈福點燈</a>：太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，多於農曆新年期間辦理。</li>
           <li><a href="/blessing" style="color:#7C5C1E">祈福法會</a>：不定期舉辦，為信眾消災解厄、增福添壽。</li>
-          <li><a href="/relocation" style="color:#7C5C1E">遷址捐款</a>：道場遷址的護持專案。</li>
+          <li><a href="/relocation" style="color:#7C5C1E">遷址捐款</a>
+          <a href="/deities" style="color:#7C5C1E">祀奉神尊</a>
+          <a href="/scripture" style="color:#7C5C1E">天上聖母經</a>：道場遷址的護持專案。</li>
           <li><a href="/about" style="color:#7C5C1E">關於和聖壇</a>：沿革與壇務介紹。</li>
         </ul>
         <p style="margin-top:1.75rem;color:#7C5C1E">本網站需要啟用 JavaScript 才能顯示完整內容與線上登記功能。</p>

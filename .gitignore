@@ -33,3 +33,7 @@ dist-ssr
 
 # supabase CLI 的本機暫存：記錄這台機器連到哪個專案，換機器就不一樣，不該進版控
 supabase/.temp/
+
+# sitemap 由 scripts/prerender.js 從 ROUTES 產生（寫進 dist/），
+# 留一份手寫的在 public/ 只會兩份打架、而且遲早忘記同步。
+public/sitemap.xml

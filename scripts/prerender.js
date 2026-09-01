@@ -38,6 +38,7 @@ const ROUTES = [
     // 不預渲染的話，貼到 LINE 的預覽卡片會沿用靜態 index.html 的法會報名標題——
     // 網址等於半殘。內容取自 scripture-data.json（136 段，每段有經文與註解）。
     path: '/scripture',
+    priority: '0.8',
     title: '天上聖母經｜經文、註解與故事｜台北古亭和聖壇',
     desc: '天上聖母經全文，逐段附白話註解與典故出處，共 136 段。台北古亭和聖壇提供，可線上閱讀。',
     h1: '天上聖母經',
@@ -55,6 +56,7 @@ const ROUTES = [
   },
   {
     path: '/about',
+    priority: '0.8',
     title: '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
     desc: '和聖壇創立於民國 73 年，主祀天上聖母，前身為聖鳳壇。位於台北市中正區晉江街，提供問事、點燈、法會等服務。',
     h1: '關於和聖壇',
@@ -65,6 +67,7 @@ const ROUTES = [
   },
   {
     path: '/booking',
+    priority: '0.8',
     title: '預約問事｜台北古亭和聖壇',
     desc: '事業、感情、家運遇有瓶頸，誠心向神明請示。台北古亭和聖壇提供一對一專人解籤與問事服務，可線上預約場次，亦接受現場報名。',
     h1: '預約問事',
@@ -75,6 +78,7 @@ const ROUTES = [
   },
   {
     path: '/lamps',
+    priority: '0.8',
     title: '祈福點燈｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
     desc: '台北古亭和聖壇祈福點燈線上登記。農曆新年期間提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。',
     h1: '祈福點燈',
@@ -85,6 +89,7 @@ const ROUTES = [
   },
   {
     path: '/blessing',
+    priority: '0.7',
     title: '祈福法會報名｜台北古亭和聖壇',
     desc: '台北古亭和聖壇不定期舉辦祈福法會，為信眾消災解厄、增福添壽，提供個人與闔家平安祈福線上報名。',
     h1: '祈福法會',
@@ -95,16 +100,20 @@ const ROUTES = [
   },
   {
     path: '/deities',
+    priority: '0.7',
     title: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
     desc: '台北古亭和聖壇奉祀天上聖母、濟公禪師、中壇元帥、文武財神等神尊。本頁介紹各殿奉祀的神尊與其職掌。',
     h1: '祀奉神尊',
     body: [
-      '和聖壇主祀天上聖母，並配祀濟公禪師、中壇元帥、文武財神等諸位神尊。',
+      // 這句原本列了「濟公禪師、中壇元帥、文武財神」，但資料庫的名單裡沒有中壇元帥——
+      // 手寫的概括與實際內容漂掉了。名單交給下面從資料庫抓的那段，這裡不再點名。
+      '和聖壇主祀天上聖母，同壇奉祀諸位神尊，各有其願力與職司。',
       '誠邀諸善信大德一同前來參拜。壇址：100 臺北市中正區晉江街 72 巷 9 號。',
     ],
   },
   {
     path: '/relocation',
+    priority: '0.7',
     title: '遷址捐款｜護持和聖壇道場遷址',
     desc: '和聖壇道場遷址護持專案。分「每月同行｜月供養」與「單次供養」兩種方案，誠摯邀請信眾一同護持。',
     h1: '遷址捐款',
@@ -172,6 +181,37 @@ const faq = await fetchFaq();
  * 看到的永遠是最新的；這裡產的是給「不執行 JS 的爬蟲」看的靜態版本。
  * 抓不到就沿用 index.html 裡原本寫的內容（下面的 replace 找不到就不動）。
  */
+/**
+ * 祀奉神尊的名單。給不執行 JS 的爬蟲看的。
+ *
+ * 為什麼要抓：原本 /deities 的 noscript 只有一句「主祀天上聖母，並配祀濟公禪師、
+ * 中壇元帥、文武財神等」——那是手寫的概括，**而且與實際名單不符**（名單裡沒有
+ * 中壇元帥）。「台北 媽祖廟 供奉哪些神明」正是會被搜尋與被 AI 問到的問題，
+ * 資料庫裡有 38 尊的完整名單，沒有理由讓爬蟲只看到一句錯的話。
+ * 抓不到就回 null，退回 ROUTES 裡手寫的 body，不會開天窗。
+ */
+const fetchDeities = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/deities?select=name,is_visible,display_order&order=display_order`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('沒有資料');
+    const names = rows.filter((r) => r.is_visible !== false).map((r) => (r.name || '').trim()).filter(Boolean);
+    if (names.length === 0) throw new Error('沒有顯示中的神尊');
+    console.log(`prerender  神尊名單來源：資料庫（${names.length} 尊）`);
+    return names;
+  } catch (e) {
+    console.log(`prerender  神尊名單來源：ROUTES 手寫內容（讀資料庫失敗：${e.message}）`);
+    return null;
+  }
+};
+
 const fetchSiteInfo = async () => {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.VITE_SUPABASE_ANON_KEY;
@@ -199,7 +239,30 @@ const fetchSiteInfo = async () => {
   }
 };
 
+/**
+ * noscript 裡的站內連結。
+ *
+ * 為什麼需要：原本每個分頁的 noscript 只有一個「回首頁」，不執行 JS 的爬蟲
+ * （GPTBot／ClaudeBot／PerplexityBot 都不執行）落在 /about 之後只能回首頁，
+ * 走不到兄弟頁——整個站在它們眼裡幾乎沒有內部連結。sitemap 能補一部分，
+ * 但頁與頁之間的關聯是 sitemap 給不了的。
+ * 從 ROUTES 自動產生，新增分頁不必回來改這裡。
+ */
+const NAV_LINKS = [{ path: '/', label: '首頁' }, ...ROUTES.map((r) => ({ path: r.path, label: r.h1 }))];
+
+/**
+ * 這一頁 noscript 的段落。預設是 ROUTES 裡手寫的 body；
+ * /deities 額外把資料庫的神尊名單接在後面（手寫那句只是概括，且曾與實際名單不符）。
+ */
+const bodyOf = (r) => {
+  if (r.path === '/deities' && deityNames && deityNames.length) {
+    return [...r.body, `本壇目前奉祀的神尊共 ${deityNames.length} 尊：${deityNames.join('、')}。`];
+  }
+  return r.body;
+};
+
 const site = await fetchSiteInfo();
+const deityNames = await fetchDeities();
 
 /** 把一份 HTML 裡的地址／電話／開放時間換成後台設定的值 */
 const applySiteInfo = (html) => {
@@ -299,9 +362,10 @@ for (const r of ROUTES) {
     <noscript>
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
-${r.body.map((p) => `        <p>${esc(p)}</p>`).join('\n')}
+${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}
         <p style="margin-top:1.5rem">台北古亭和聖壇｜${site ? esc(site.address) : '100 臺北市中正區晉江街 72 巷 9 號'}｜電話 <a href="tel:${site ? site.phone.replace(/[^\d+]/g, '') : '0953945349'}" style="color:#7C5C1E">${site ? esc(site.phone) : '0953-945-349'}</a>｜每日 ${site ? `${site.open} – ${site.close}` : '06:00 – 23:00'}</p>
-        <p><a href="/" style="color:#7C5C1E">回首頁</a></p>
+        <p style="margin-top:1.25rem">${NAV_LINKS.filter((l) => l.path !== r.path)
+          .map((l) => `<a href="${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
         <p style="color:#7C5C1E">本頁的線上登記功能需要啟用 JavaScript。</p>
       </div>
     </noscript>`;
@@ -354,6 +418,36 @@ if (site) {
   } catch (e) {
     console.log(`prerender  llms.txt 未更新：${e.message}`);
   }
+}
+
+/**
+ * sitemap.xml 由 ROUTES 產生，不再手工維護。
+ *
+ * 為什麼改：public/sitemap.xml 是手寫的，新增 /scripture 時要記得回去補一筆——
+ * 而「要記得」的事情遲早會忘。少一筆的後果不會有任何錯誤訊息，只是那一頁
+ * 比較晚被發現。而且原本 /deities 那筆連 lastmod 都漏了。
+ *
+ * lastmod 用建置日期：這些頁面的靜態內容（noscript、FAQ、神尊名單、基本資料）
+ * 都是建置當下從資料庫抓的快照，所以「這份快照產生於今天」是誠實的說法。
+ */
+{
+  // **本地時區組字串，不要用 toISOString().slice(0,10)**——那是 UTC，
+  // 台灣早上 8 點前會少一天（CLAUDE.md 有記，我還是踩了一次）。
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const entries = [{ path: '/', priority: '1.0' }, ...ROUTES];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.map((r) => `  <url>
+    <loc>${ORIGIN}${r.path === '/' ? '/' : r.path}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${r.priority || '0.8'}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+  writeFileSync(resolve(DIST, 'sitemap.xml'), xml, 'utf8');
+  console.log(`prerender  sitemap.xml   ${entries.length} 筆（lastmod ${today}）`);
 }
 
 console.log(`prerender  完成 ${ROUTES.length} 頁`);
