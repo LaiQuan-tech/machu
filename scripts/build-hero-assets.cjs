@@ -2,10 +2,19 @@
 //
 // 用法（sharp 不是本專案的相依套件，裝在暫存資料夾跑就好，不要寫進 package.json）：
 //   mkdir -p /tmp/cut && cd /tmp/cut && npm init -y && npm i sharp
-//   NODE_PATH=/tmp/cut/node_modules node scripts/build-hero-assets.js
+//   NODE_PATH=/tmp/cut/node_modules node scripts/build-hero-assets.cjs [輸出目錄]
+//
+// **副檔名是 .cjs 不是 .js**：package.json 標了 type: module，副檔名 .js 會被當成
+// ESM，頂層的 require 直接 ReferenceError（這支曾經因此完全跑不起來，檔頭寫的
+// 用法是失效的，2026-09-02 修正）。改 .cjs 才保得住 CommonJS 語意，
+// NODE_PATH 也才對 require 有作用。
+//
+// 輸出目錄預設是本專案的 public/，可用第一個參數改到別處——
+// **驗證改動時務必指定到暫存目錄**：現在 public/ 那三張是廟方直接給的去背圖，
+// 不是這支產的，跑下去會直接覆蓋掉線上的圖。
 //
 // 換新照片時：改下面 JOBS 的 src 與 pred，跑完直接覆蓋 public/hero-*.webp|png。
-// pred 是「這個像素像不像背景」，參數怎麼調見 scripts/cutout-lib.js 的說明。
+// pred 是「這個像素像不像背景」，參數怎麼調見 scripts/cutout-lib.cjs 的說明。
 //
 // ── 注意：public/ 現在那三張不是這支產的 ──
 // 2026-09-01 廟方直接給了「已經去背」的三張（1875x2500 含 alpha），
@@ -14,9 +23,10 @@
 // 下次要重跑，先確認手上的原始檔是「未去背」的才需要 cutout；
 // 已去背的只要裁邊界＋縮放，別再套 pred。
 const sharp = require('sharp');
-const { cutout } = require('./cutout-lib.js');
+const { cutout } = require('./cutout-lib.cjs');
 const D = process.env.HOME + '/Downloads/';
-const OUT = '/Users/chiehfanchung/Documents/和聖壇網站/public/';
+// 寫死絕對路徑換一台機器就壞；改用相對於本檔的位置，並允許用參數覆蓋。
+const OUT = (process.argv[2] || require('path').resolve(__dirname, '..', 'public')).replace(/\/*$/, '/');
 
 // 三尊的去背參數各自不同，因為背景完全是兩回事：
 //   三媽（主神，橘袍黑面）拍在黃牆前（牆和橘袍同色系，只能靠飽和度＋過曝亮斑切，
