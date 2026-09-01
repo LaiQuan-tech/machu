@@ -220,6 +220,20 @@ for (const r of ROUTES) {
   html = swap(html, /<meta property="og:url" content="[^"]*" \/>/,
     `<meta property="og:url" content="${url}" />`, 'og:url');
 
+  // 法會的 Event 只留在首頁。
+  // 這些分頁是拿 index.html 當模板產的，會連同模板裡的 @graph 一起繼承，
+  // 結果「關於我們」「祈福點燈」「遷址捐款」也各自宣告了一次同一場法會——
+  // 那些頁面根本不是在講這場法會，Google 會回報活動結構化資料問題。
+  // 首頁有法會的行動呼籲，留在那裡才對得上「標記的內容使用者看得到」。
+  html = html.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/, (m, body) => {
+    let doc;
+    try { doc = JSON.parse(body); } catch { return m; }   // 解析不了就原樣放過，不要弄壞頁面
+    if (!Array.isArray(doc['@graph'])) return m;
+    const kept = doc['@graph'].filter((n) => n['@type'] !== 'Event');
+    if (kept.length === doc['@graph'].length) return m;
+    return `<script type="application/ld+json">\n${JSON.stringify({ ...doc, '@graph': kept }, null, 2)}\n    </script>`;
+  });
+
   // 這一頁自己的 JSON-LD：麵包屑讓檢索器知道站內層級，WebPage 綁回宮廟本體
   const ld = {
     '@context': 'https://schema.org',

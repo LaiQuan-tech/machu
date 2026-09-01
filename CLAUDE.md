@@ -146,6 +146,10 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 ## 待辦與未修事項
 
 - 主官網上線 checklist：`FAHUI_LANDING` 改 false、index.html title／OG 換回官網用、hero 圖 fallback 是外連 Unsplash 建議換本地圖、Google Maps iframe 在部分環境載入失敗待驗證。
+  **同時要處理 index.html 的法會 Event JSON-LD**：`url` 與 `offers.url` 指向 `machu-five.vercel.app` 根路徑，而 `FAHUI_LANDING` 一關那裡就不再是報名表；法會 9/13 過後整個 Event 節點也該移除或換成下一場，否則 Search Console 會回報過期活動。
+- **heshengtan.tw 被 HiNet 上網守衛誤判封鎖**（2026-09-02 發現）：`safebrowsing.hinet.net` 把 `*.heshengtan.tw` 的 DNS 全導到 `202.39.161.53`，那台沒有本站憑證，Safari 直接跳「此連線並非私人連線」。**網站與憑證都正常**（Let's Encrypt，走正確 IP 是 HTTP 200、TLS 驗證 0）。
+  怎麼分辨這類問題：權威 NS 與 DoH 都回正確 IP，但明文 UDP 查詢回別的 IP、TTL 固定不倒數、**連不存在的子網域也回同一個 IP**＝有人現場合成假回答，不是設定錯也不是快取。
+  攔截頁的「仍要前往」按鈕對 HTTPS 網站沒用——瀏覽器在 TLS 階段就先失敗，使用者只會看到憑證警告。申訴管道：中華電信客服 0800-080-123。Google Search Console 確認過沒有安全性問題，只有 HiNet 這一家。
 - 遷廟募款區塊尚未動工（使用者要求「新增一個區塊」，待確認目標金額／進度條、收款方式、說明內容、後台可編輯欄位）。
 - 揪團功能停用中（`ENABLE_GROUP_BOOKING=false`）；程式與 RLS 已相容，重啟前跑一次完整流程測試。
 - 歷史遺留：檢測報告 17 項問題已全修（2026-07-06），詳見 memory 的 project_main_site_prelaunch。
