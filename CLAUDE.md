@@ -1,7 +1,7 @@
 # 和聖壇網站（媽祖官網）操作手冊
 
 宮廟網站：React 19 + Vite + Tailwind(CDN) + Supabase。正式站 **https://heshengtan.tw**（2026-08-10 上線，GoDaddy 註冊、DNS 也在 GoDaddy）。
-`https://machu-five.vercel.app` 是 Vercel 預設網域，仍然指到同一個部署、沒有停用——舊的分享連結不會壞。
+`https://machu-five.vercel.app` 是 Vercel 預設網域、**測試用**，仍指到同一個部署且沒有停用——舊的分享連結不會壞，但**對外一律用 heshengtan.tw**（廟方 2026-09-02 明確要求），不要再出現在 og:url、結構化資料或任何新發的連結。
 Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見的 76.76.21.21）；www 走 308 轉到 apex。
 先讀全域制度 ~/.claude/CLAUDE.md；本檔只放這個 repo 的操作事實與陷阱。
 
@@ -9,6 +9,8 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 
 - **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
   判斷集中在 `shouldShowFahui()`（根路徑＋非後台＋非志工頁才顯示），初始值與 popstate 共用同一個函式；分開寫過會導致按上一頁被報名表吃掉。
+- **法會報名表在官網的網址是 `/fahui`**（`FAHUI_PATH`，2026-09-02 新增）。原本報名表只在「非官方網域的根路徑」顯示，所以 heshengtan.tw 上沒有任何網址能直接開它，og:url 與 Event 只好填測試網域。現在 `shouldShowFahui()` 是「`isFahuiUrl()` **或** 原本那條非官方網域規則」，舊分享連結行為完全不變。兩顆「報名普渡法會」按鈕走 `openFahui()`，會把網址推成 `/fahui`——報名表因此可分享、重新整理不會掉回首頁。
+  **改這段一定要兩種網域身分各測一遍**：把 `localhost` 暫時加進 `OFFICIAL_HOSTS` 就能在本機驗官方網域那一半，測完務必撤掉（我用 `TEMP-HOSTTEST` 標記並在部署前 grep 確認為 0）。要測的路徑：`/`、`/fahui`、`/booking`、`/volunteer`、`/?admin=1`，外加「點報名鈕→網址變 /fahui→按上一頁」。
 - **志工報名表也上線了**（VolunteerRegistration.tsx，migration：`supabase/migrations/volunteer_registration.sql`）。入口只在**法會報名成功頁**（刻意不放主表單，避免拉低法會報名轉換率）。點入口會把法會表已填的聯絡資料自動帶入（precedence：連結帶入 > 志工草稿 > 法會草稿）。後台「志工報名」分頁可看名單、標記已聯絡、匯出 Excel。只收 5 項基本資料（姓名/電話/地址/生日/LINE），無排班。
 - **四項服務已各自獨立成分頁**（2026-08-05）：`/booking` 預約問事、`/lamps` 祈福點燈、`/blessing` 祈福活動、`/repair` 神尊修復。首頁只剩 Hero／最新活動／關於我們／祀奉神尊／宮廟服務／隨喜捐獻。
   路由是 `page` state ＋ `history.pushState`，設定在 `PAGE_PATHS`；`NAV_PRIMARY`／`NAV_MORE` 的 `kind` 區分「分頁」與「首頁區塊」，統一走 `navTo()`。
