@@ -176,7 +176,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   攔截頁的「仍要前往」按鈕對 HTTPS 網站沒用——瀏覽器在 TLS 階段就先失敗，使用者只會看到憑證警告。申訴管道：中華電信客服 0800-080-123。Google Search Console 確認過沒有安全性問題，只有 HiNet 這一家。
 - **法會 Event 結構化資料要制度化（普渡 9/13 後做，廟方 2026-09-02 決定延後）**：現在是寫死在 `index.html` 的一段 JSON-LD，每辦一場就要工程師改程式——跟 FAQ／捐款類別／基本資料那些「後台可編輯」的東西不同層級。
   **不必新建資料表**：`blessing_events` 已經有需要的每一個欄位（`title`→name、`start_date`/`end_date`、`registration_deadline`→offers.validThrough、`fee`/`packages`→lowPrice/highPrice、`image_url`→image、`is_active`→要不要輸出），後台也已能編輯。缺的只是「接到 JSON-LD」那一段，照 FAQ 現成的三層機制抄：`App.tsx` 執行期覆寫、`scripts/prerender.js` 建置時快照。過期活動自動不輸出，就永久解決 Search Console 的「過期活動」回報。
-  **動工前要先問廟方一個問題**（這是廟方的決定不是技術問題）：以後的法會要不要也在「祈福活動」後台建一筆 `blessing_events`？這次的普渡法會走的是 `fahui_registrations` 那套獨立流程、不在該表裡。若法會維持獨立流程，JSON-LD 就要同時吃兩個來源。
+  **廟方已決定（2026-09-02）：以後的法會也在「祈福活動」後台建一筆 `blessing_events`。** 所以 Event JSON-LD **只讀這一張表**，不要為了相容而支援兩個來源——多一個來源就多一種「兩邊不一致」的可能。
+  這次的普渡法會走的是 `fahui_registrations` 那套獨立流程、不在該表裡，屬於過渡期的特例：9/13 過後把寫死的那段 Event 直接刪掉即可，不需要回頭補建一筆。報名流程本身維持獨立（`blessing_events` 只負責「這場活動是什麼」，不取代法會的報名表）。
 - 遷廟募款區塊尚未動工（使用者要求「新增一個區塊」，待確認目標金額／進度條、收款方式、說明內容、後台可編輯欄位）。
 - **揪團：`main` 上仍停用，已備妥在 `feature/group-booking` 分支，普渡（9/13）後合併即上線**（2026-09-02）。
   資料表 `shared_sessions`／`shared_session_entries` 與 RPC `get_shared_session` **早就建好了**（去資料庫確認過，不是只有程式碼躺著）。流程：建立共享場次 → 拿 `?share=<id>` 連結 → 親友各自填 → 一起送出；支援點燈／祈福／問事，連結 7 天到期。
