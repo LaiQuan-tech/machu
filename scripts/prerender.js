@@ -41,6 +41,13 @@ const ROUTES = [
     title: '天上聖母經｜經文、註解與故事｜台北古亭和聖壇',
     desc: '天上聖母經全文，逐段附白話註解與典故出處，共 136 段。台北古亭和聖壇提供，可線上閱讀。',
     h1: '天上聖母經',
+    // 專屬分享圖。不給的話會沿用全站的 og-hero.jpg（金箔＋神尊），
+    // 那張跟經文沒關係。這張是廟方的書籍封面，直式 1414x2000 沒辦法直接當
+    // og:image（LINE／FB 會裁掉），所以做成 1200x630、整張封面置中，
+    // 底色取自封面自己的外框（rgb(222,198,169)），接縫是連續的。
+    // 產生方式見 CLAUDE.md。
+    image: '/og-scripture.jpg',
+    imageAlt: '天上聖母經的註解與故事｜台北古亭和聖壇 編著',
     body: [
       '天上聖母經全文，逐段附上白話註解與典故出處，共 136 段。',
       '經文記述天上聖母降世的緣由、勸世的教誨，以及歷代忠臣烈士的節義事蹟；註解說明字句的意思與引用的出處，供信眾誦讀時對照理解。',
@@ -232,6 +239,20 @@ for (const r of ROUTES) {
     `<meta property="og:description" content="${esc(r.desc)}" />`, 'og:description');
   html = swap(html, /<meta property="og:url" content="[^"]*" \/>/,
     `<meta property="og:url" content="${url}" />`, 'og:url');
+
+  // 這一頁自己的分享圖（沒指定就沿用 index.html 的全站預設）。
+  // og:image 與 twitter:image 必須一起換，只換一個會讓 X／Twitter 顯示另一張。
+  if (r.image) {
+    const img = ORIGIN + r.image;
+    html = swap(html, /<meta property="og:image" content="[^"]*" \/>/,
+      `<meta property="og:image" content="${img}" />`, 'og:image');
+    html = swap(html, /<meta name="twitter:image" content="[^"]*" \/>/,
+      `<meta name="twitter:image" content="${img}" />`, 'twitter:image');
+    if (r.imageAlt) {
+      html = swap(html, /<meta property="og:image:alt" content="[^"]*" \/>/,
+        `<meta property="og:image:alt" content="${esc(r.imageAlt)}" />`, 'og:image:alt');
+    }
+  }
 
   // 法會的 Event 只留在首頁。
   // 這些分頁是拿 index.html 當模板產的，會連同模板裡的 @graph 一起繼承，
