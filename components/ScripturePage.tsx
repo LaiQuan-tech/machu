@@ -306,7 +306,13 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                           min-width: 0 !important; max-width: 60% !important;
                           align-self: center !important; }
           .sp-parallax-wrap { width:100% !important; }
-          .sp-verse { flex: 0 0 auto !important; }
+          /* 經文靠上、插圖維持置中。
+             短的經文（單欄佔 60 節，例如「為女聖人」四個字）配一張高插圖時，
+             靠下對齊會讓那幾個字沉在插圖底部、上方一大片空（廟方回報）。
+             直排的閱讀起點在右上，靠上才對得起閱讀順序。
+             用 align-self 而不是改容器的 align-items：插圖仍然置中，
+             只動經文這一項。 */
+          .sp-verse { flex: 0 0 auto !important; align-self: flex-start !important; }
           .sp-rule, .sp-note { flex: 0 0 100% !important; }
           /* 手機版入場：小幅 translateX（不用 110vw，否則 getBoundingClientRect 會偏移） */
           .sp-left  { opacity:0; transform:translateX(-40px) scale(0.96) !important;
