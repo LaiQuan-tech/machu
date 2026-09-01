@@ -207,6 +207,17 @@
         z-index: 1;
         transform: translate3d(var(--hero-shift-x), var(--hero-shift-y), 0);
         will-change: transform;
+        /* 底部淡出，讓神尊跟背景同一種收邊。
+           為什麼需要：Hero 底那道 h-20 漸層（App.tsx 的 to-temple-bg）是 z-auto，
+           而這一層是 z-index:1 —— 神尊畫在漸層「上面」，結果背景柔和淡進米白、
+           神尊卻被硬切一刀。廟方看到的就是那條線。
+           不改 z-index 而改用遮罩，是因為兩個斷點的切線不在同一個地方：
+             桌機 切在 Hero 下緣（stage 下緣剛好也在那裡，負邊距把 box 收回來了）
+             手機 切在 stage 自己的下緣（overflow-hidden，下面還有報名鈕）
+           兩者都是「stage 的下緣」，所以一條規則就同時對得上。
+           80px＝h-20，與背景那道漸層等長，兩者淡出速率才一致。 */
+        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 80px), transparent 100%);
+        mask-image: linear-gradient(to bottom, #000 calc(100% - 80px), transparent 100%);
       }
       .hero-deity {
         position: relative;
