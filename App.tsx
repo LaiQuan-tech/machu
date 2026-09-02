@@ -61,6 +61,7 @@ const ScripturePage = lazy(() => import('./components/ScripturePage'));
 const MemberPortal = lazy(() => import('./components/MemberPortal'));
 const FahuiRegistration = lazy(() => import('./components/FahuiRegistration'));
 const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistration'));
+const CalendarPage = lazy(() => import('./components/CalendarPage'));
 
 const PageLoading = () => (
   <div className="min-h-[100svh] bg-[#F5F0E8] flex items-center justify-center" role="status" aria-live="polite">
@@ -108,7 +109,7 @@ const ENABLE_GROUP_BOOKING = false; // 揪團功能暫時停用，需要時設�
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
@@ -123,6 +124,8 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   // 舊版是在首頁一次展開四尊、再四尊，尊數一多整個首頁被神尊灌爆，
   // 而且捲很久也回不到別的區塊。導覽列的「祀奉神尊」仍然捲到首頁區塊，不換頁。
   deitiesAll: '/deities',
+  // 祭祀行事曆：神明聖誕（deity_feasts，每年重複的農曆日）＋壇務活動（blessing_events）
+  calendar: '/calendar',
 };
 
 /**
@@ -178,6 +181,22 @@ const HERO_FADE_RGB = ENABLE_BULLETIN
 
 const TAG_PINNED = 'bg-temple-red text-white';
 const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
+
+/**
+ * 祭祀行事曆（/calendar）暫時不對外露出——廟方正在後台建立聖誕與活動資料，
+ * 資料齊全前不要讓信眾看到半份行事曆。
+ *
+ * 改成 true 要同時處理四個地方（少一個就會不一致）：
+ *   1. 這個旗標
+ *   2. `scripts/prerender.js` 的 ROUTES 裡 /calendar 那筆的 enabled  ← sitemap 也是由它產生
+ *   3. `vercel.json` 把 `/calendar → /calendar.html` 的 rewrite 加回萬用規則之前
+ *   4.（本檔）NAV_MORE 的項目會自動跟著這個旗標出現，不必另外改
+ *
+ * **刻意不擋網址**：關掉時只從導覽列與搜尋引擎移除，直接輸入 /calendar 仍然打得開。
+ * 廟方要一邊在後台建資料、一邊開前台確認換算對不對，照 ENABLE_REPAIR 那樣讓網址
+ * 跳回首頁的話就沒辦法預覽了。沒有連結指過去、也不在 sitemap 裡，信眾不會走到。
+ */
+const ENABLE_CALENDAR = false;
 
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 
@@ -448,6 +467,10 @@ const isVolunteerUrl = (): boolean =>
     || new URLSearchParams(window.location.search).has('volunteer'));
 
 const NAV_MORE: NavItem[] = [
+  // 行事曆放最上面：它是「常看的參考資料」，性質與其他幾項不同。
+  // 桌機頂層那一列已經沒有空間（1024px 時用掉 949px、可用 945px），只能放下拉。
+  // 由 ENABLE_CALENDAR 控制；關閉時整個項目不出現（桌機下拉與手機選單共用這份資料）
+  ...(ENABLE_CALENDAR ? [{ id: 'calendar', label: '祭祀行事曆', kind: 'page' } as NavItem] : []),
   { id: 'blessing', label: '祈福活動', kind: 'page' },
   // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
@@ -561,6 +584,7 @@ const App: React.FC = () => {
       relocation: '遷址捐款｜護持和聖壇道場遷址',
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
+      calendar:   '祭祀行事曆｜神明聖誕與壇務活動｜台北古亭和聖壇',
     };
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
@@ -3265,6 +3289,13 @@ const App: React.FC = () => {
       {/* ── 關於我們完整版（獨立分頁 /about）──
           入口是首頁「關於我們」區塊的「更多」按鈕；導覽列的「關於我們」仍捲到首頁區塊 */}
       {page === 'about' && <AboutPage onBack={() => goToPage('home')} />}
+
+      {/* ── 祭祀行事曆（獨立分頁 /calendar）──
+          入口在導覽列的「更多」下拉最上方。聖誕來自 deity_feasts（存農曆規則，
+          每年換算），壇務活動來自 blessing_events（存確定的國曆日） */}
+      {page === 'calendar' && (
+        <Suspense fallback={<PageLoading />}><CalendarPage onBack={() => goToPage('home')} /></Suspense>
+      )}
 
       {/* ── 遷址捐款（獨立分頁 /relocation）──
           入口在導覽列的「更多」下拉 */}

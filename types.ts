@@ -10,8 +10,8 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
-  staff:   ['siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
+  admin:   ['analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts'],
+  staff:   ['siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'feasts'],
   finance: ['overview', 'fahui', 'donations', 'receivables'],
 };
 
@@ -650,4 +650,35 @@ export interface SharedSessionRecord extends SharedSessionData {
   entries:   SharedEntryRecord[];
   createdAt: string;
   expiresAt: string;
+}
+
+// ─── 祭祀行事曆（deity_feasts）────────────────────────────────────────────────
+// 每年重複的日子：神明聖誕與節日。單次活動放 blessing_events，兩張表分工見
+// supabase/migrations/deity_feasts.sql 的檔頭。
+
+/** 日期型態。三種算法完全不同，不能合成一個欄位 */
+export type FeastCalendarType = 'lunar' | 'solar' | 'jieqi';
+
+export interface DeityFeastData {
+  title: string;
+  /** 選填：關聯到本壇供奉的神尊（deities.id） */
+  deityId: string | null;
+  calendarType: FeastCalendarType;
+  /** calendarType === 'lunar' 時有值 */
+  lunarMonth: number | null;
+  lunarDay: number | null;
+  isLeapMonth: boolean;
+  /** calendarType === 'solar' 時有值 */
+  solarMonth: number | null;
+  solarDay: number | null;
+  /** calendarType === 'jieqi' 時有值，例如「冬至」 */
+  jieqi: string | null;
+  note: string;
+  isVisible: boolean;
+  /** 同一天有多筆時的排序 */
+  sortOrder: number;
+}
+
+export interface DeityFeast extends DeityFeastData {
+  id: string;
 }

@@ -5,6 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Solar, Lunar, LunarYear } from 'lunar-javascript';
+import { LUNAR_MONTH_VALUES, LUNAR_MONTH_LABELS_BASE, LUNAR_DAYS } from '../services/lunarCalendar';
 import { RefreshCw } from 'lucide-react';
 import { ZodiacSign } from '../types';
 
@@ -36,9 +37,8 @@ const SOLAR_MONTH_OPTIONS = [
   ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` })),
 ];
 
-const LUNAR_MONTH_VALUES = ['正','二','三','四','五','六','七','八','九','十','冬','臘'];
-const LUNAR_MONTH_LABELS_BASE = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','臘月'];
-const LUNAR_DAYS = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+// 農曆字表已抽到 services/lunarCalendar.ts 共用（祭祀行事曆也要用同一份）。
+// 兩份平行維護正是會員中心當初長出兩種生日格式的原因，見 CLAUDE.md。
 
 const SHICHEN_OPTIONS = [
   { value: '', label: '吉' },

@@ -104,6 +104,15 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **遷址方案手機卡片**（`components/RelocationPage.tsx`）：只列「這一級有的」項目，沒有的不要畫灰色「—」。桌機是矩陣表格、橫向能比較各級差異，畫「—」才有意義；手機一級一張卡沒有比較對象，列一堆「—」是干擾（廟方明確反映過）。金額的「元」由 `withCurrency()` 在渲染層補，後台只存數字，「隨喜」這種非數字不會被加上單位。
 - **滾動視差／進場（`hooks/useScrollMotion.ts`）**：全站一個引擎，App 掛一次掃全 document。元素只要掛 class：`.sr`＋`.sr-up/left/right`（進場）、`.sr-figure`（正向位移 96px）、`.sr-counter`（反向 56px），`data-par` 可覆寫幅度。**三件事必須分在三層元素上**：進場的 transform 由 CSS 給、視差的 transform 由 JS 寫成 inline、卡片自己的 `hover:-translate-y-*` 又是第三個 transform——疊在同一個元素上只會剩一個生效。另外 Tailwind CDN 排在自訂 `<style>` 之後，元素若帶 `transition-all` 會把 `.sr` 的 0.85s 曲線壓成 150ms，這種卡片要把 `.sr` 放外層包一層。
 - **把既有元素包進新容器時，檢查它有沒有「靠父容器生效」的 class**：`flex-1`、`col-span-*`，以及最容易漏的**隱性依賴**——輸入框沒寫 `w-full`、單純靠 grid 自動拉滿。包一層 `<label>` 之後，grid 的子元素變成 label，input 只剩瀏覽器預設寬度；而預設寬度取決於字級，**小字級的裝置上看起來變窄、大字級的裝置上反而溢出被裁掉**（同一個 bug 兩種表現，2026-08-13 踩過）。驗收時要比對寬度，不能只確認新元素有出現。
+- **祭祀行事曆（`/calendar`，2026-09-02 新增，`ENABLE_CALENDAR` 目前為 false）**：神明聖誕與壇務活動的年度條列。
+  **兩種資料刻意分兩張表**：`deity_feasts` 存「每年重複的規則」（農曆／國曆／節氣三種型態），`blessing_events` 存「今年這一場」的確定國曆日。聖誕是農曆固定日、換算成國曆每年都不同（媽祖三月廿三：2026 是 5/9、2027 是 4/29），塞進 blessing_events 就得每年手動補 38 筆。前台把兩者合併排序。
+  **算不出日期時要據實顯示「今年無此日」**，不要拿鄰近日期頂替——閏月每 19 年才輪 7 次、農曆三十只有大月才有。`lunarToSolar()` 會反查確認，因為 lunar-javascript 對不存在的日期是回鄰近值而不是報錯。
+  **節氣不能用 `getJieQiTable()`**：那張表以農曆年為範圍，查 2026 會拿到 2025-12-21 的冬至。改用掃描該國曆年每一天比對 `getJieQi()`。
+  **農曆字表在 `services/lunarCalendar.ts`**（2026-09-02 從 BirthDatePicker 抽出共用）。行事曆與生日欄位用同一份，不要再各抄一份——會員中心平行維護整套曆法邏輯正是兩種生日格式的成因。月份一律用這份字表，函式庫的 `getMonthInChinese()` 十二月會給簡體「腊」。
+  **後台每一列即時顯示今年與明年換算後的國曆日期**：廟方填的是「農曆三月廿三」，但要對的是「今年到底哪一天」，不當場換算就沒有任何地方會發現填錯。
+  **刻意不預填任何日期**：38 尊裡「茉莉媽祖」「老駕太子」「和緣太子」「顧爐太子」「菁埔夫人」「順天夫人」是本壇特有的，外部查不到；連關聖帝君都有六月廿四與五月十三兩說。日期錯了信眾會白跑一趟。
+  **`ENABLE_CALENDAR` 要改 true 時，三個地方一起改**：本旗標、`scripts/prerender.js` 裡 `/calendar` 那筆的 `enabled`（sitemap 也由它產生）、`vercel.json` 把 rewrite 加回萬用規則之前。**關閉時刻意不擋網址**——廟方要一邊在後台建資料一邊開前台核對，照 ENABLE_REPAIR 讓網址跳回首頁就沒法預覽；沒有連結指過去也不在 sitemap，信眾走不到。
+  `prerender.js` 的 `ACTIVE_ROUTES = ROUTES.filter(r => r.enabled !== false)` 是這次加的，未開放的頁不預渲染、不進 sitemap、也不出現在各頁 noscript 的站內連結。
 - **前台區塊要暫時隱藏就加旗標**，不要註解掉整段：照 `ENABLE_REPAIR`／`ENABLE_BULLETIN` 的模式，同時處理導覽列項目、區塊本身、捲動高亮，以及**其他頁面指向它的連結**（漏掉最後一項會變成「按了沒反應」）。
 - **不透明度修飾詞的數字必須落在 Tailwind 的級距上，否則整條規則靜默消失**：`bg-[#F0E9CE]/98` 產不出任何東西（級距沒有 98），元素變成完全沒有背景。手機選單就是這樣變成「沒有底色的純毛玻璃」——只剩 `backdrop-blur`，疊在 Hero 的金箔上文字幾乎看不見（廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。**它不會報錯**，class 明明寫著顏色卻毫無作用，只能靠量 `getComputedStyle(...).backgroundColor` 是不是 `rgba(0, 0, 0, 0)` 抓出來。要用 98 這種數字得寫 `/[0.98]`，或直接給 inline style。查的時候注意 `hover:` 前綴的 class 沒 hover 本來就沒值，那是誤判。
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。

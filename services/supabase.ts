@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -2255,4 +2255,77 @@ export const saveRelocationHome = async (v: RelocationHome): Promise<void> => {
     { key: RELOCATION_HOME_KEYS.body, value: v.body, updated_at: now },
   ], { onConflict: 'key' });
   if (error) { console.error('Error saving relocation home summary:', error); throw error; }
+};
+
+
+// ─── 祭祀行事曆（deity_feasts）────────────────────────────────────────────────
+// 每年重複的日子（聖誕、節日）。單次活動在 blessing_events，兩張表刻意分開，
+// 理由見 supabase/migrations/deity_feasts.sql 的檔頭。
+
+const mapFeastRow = (r: Record<string, unknown>): DeityFeast => ({
+  id:           String(r.id),
+  title:        String(r.title ?? ''),
+  deityId:      (r.deity_id as string | null) ?? null,
+  calendarType: (r.calendar_type as DeityFeast['calendarType']) ?? 'lunar',
+  lunarMonth:   r.lunar_month === null || r.lunar_month === undefined ? null : Number(r.lunar_month),
+  lunarDay:     r.lunar_day   === null || r.lunar_day   === undefined ? null : Number(r.lunar_day),
+  isLeapMonth:  Boolean(r.is_leap_month),
+  solarMonth:   r.solar_month === null || r.solar_month === undefined ? null : Number(r.solar_month),
+  solarDay:     r.solar_day   === null || r.solar_day   === undefined ? null : Number(r.solar_day),
+  jieqi:        (r.jieqi as string | null) ?? null,
+  note:         String(r.note ?? ''),
+  isVisible:    Boolean(r.is_visible),
+  sortOrder:    Number(r.sort_order ?? 0),
+});
+
+/** 資料列。型態決定要送哪幾個欄位——送錯會撞上 deity_feasts_date_fields 這條 CHECK */
+const feastRow = (d: DeityFeastData) => ({
+  title:         d.title,
+  deity_id:      d.deityId,
+  calendar_type: d.calendarType,
+  lunar_month:   d.calendarType === 'lunar' ? d.lunarMonth : null,
+  lunar_day:     d.calendarType === 'lunar' ? d.lunarDay   : null,
+  is_leap_month: d.calendarType === 'lunar' ? d.isLeapMonth : false,
+  solar_month:   d.calendarType === 'solar' ? d.solarMonth : null,
+  solar_day:     d.calendarType === 'solar' ? d.solarDay   : null,
+  jieqi:         d.calendarType === 'jieqi' ? d.jieqi      : null,
+  note:          d.note,
+  is_visible:    d.isVisible,
+  sort_order:    d.sortOrder,
+});
+
+export const getDeityFeasts = async (includeHidden = false): Promise<DeityFeast[]> => {
+  let query = supabase.from('deity_feasts').select('*')
+    .order('lunar_month', { ascending: true, nullsFirst: false })
+    .order('lunar_day',   { ascending: true, nullsFirst: false })
+    .order('sort_order',  { ascending: true });
+  if (!includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
+  // 不寫 console.error：表還沒建（migration 未跑）對訪客不是錯誤，前台會顯示空狀態。
+  // 要不要當成錯誤由呼叫端決定——後台才需要大聲抱怨。
+  if (error) throw error;
+  return (data || []).map(mapFeastRow);
+};
+
+/** 新增一筆，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
+export const createDeityFeast = async (data: DeityFeastData): Promise<string> => {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('deity_feasts').insert({ id, ...feastRow(data) });
+  if (error) { console.error('Error creating deity feast:', error); throw error; }
+  return id;
+};
+
+/**
+ * 更新。**日期型態一改就整組欄位重送**，不做部分更新——
+ * 只改 calendar_type 卻留著舊型態的欄位，會撞上 CHECK 而整筆存不進去。
+ */
+export const updateDeityFeast = async (id: string, data: DeityFeastData): Promise<void> => {
+  const { error } = await supabase.from('deity_feasts')
+    .update({ ...feastRow(data), updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { console.error('Error updating deity feast:', error); throw error; }
+};
+
+export const deleteDeityFeast = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('deity_feasts').delete().eq('id', id);
+  if (error) { console.error('Error deleting deity feast:', error); throw error; }
 };

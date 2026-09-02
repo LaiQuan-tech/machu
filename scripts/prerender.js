@@ -55,6 +55,23 @@ const ROUTES = [
     ],
   },
   {
+    // 祭祀行事曆。這一頁的內容是資料庫來的（deity_feasts ＋ blessing_events），
+    // prerender 不執行 React 所以抓不到那些資料——noscript 只能寫「這頁有什麼」，
+    // 不寫死任何日期。寫死等於多一份會過期又沒人會回來改的清單。
+    // 與 App.tsx 的 ENABLE_CALENDAR 一起開關。關閉時不預渲染、也不進 sitemap——
+    // 留著會讓 Google 收錄一頁還沒建好的行事曆。網址本身仍由 SPA 萬用規則供應。
+    enabled: false,
+    path: '/calendar',
+    priority: '0.7',
+    title: '祭祀行事曆｜神明聖誕與壇務活動｜台北古亭和聖壇',
+    desc: '和聖壇年度祭祀行事曆：神明聖誕與壇務活動一覽。聖誕依農曆記載，本表已換算為當年國曆日期，並標示星期。',
+    h1: '祭祀行事曆',
+    body: [
+      '和聖壇的年度祭祀行事曆，依月份列出神明聖誕與壇務活動。',
+      '聖誕以農曆記載，換算成國曆每年日期不同；本表會依所選年份自動換算，並一併標示農曆與星期。',
+    ],
+  },
+  {
     path: '/about',
     priority: '0.8',
     title: '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
@@ -248,7 +265,14 @@ const fetchSiteInfo = async () => {
  * 但頁與頁之間的關聯是 sitemap 給不了的。
  * 從 ROUTES 自動產生，新增分頁不必回來改這裡。
  */
-const NAV_LINKS = [{ path: '/', label: '首頁' }, ...ROUTES.map((r) => ({ path: r.path, label: r.h1 }))];
+/**
+ * 尚未對外開放的分頁（enabled: false）一律排除：不預渲染、不進 sitemap、
+ * 也不出現在各頁 noscript 的站內連結。留著會讓爬蟲收錄一頁還沒建好的內容。
+ * 開關要與 App.tsx 的對應旗標一起改。
+ */
+const ACTIVE_ROUTES = ROUTES.filter((r) => r.enabled !== false);
+
+const NAV_LINKS = [{ path: '/', label: '首頁' }, ...ACTIVE_ROUTES.map((r) => ({ path: r.path, label: r.h1 }))];
 
 /**
  * 這一頁 noscript 的段落。預設是 ROUTES 裡手寫的 body；
@@ -287,7 +311,7 @@ const applySiteInfo = (html) => {
 };
 
 
-for (const r of ROUTES) {
+for (const r of ACTIVE_ROUTES) {
   let html = template;
   const url = ORIGIN + r.path;
 
@@ -438,7 +462,7 @@ if (site) {
   // 才看得出來（實測踩到）。前端的日期規則講的是使用者的裝置（在台灣），
   // 建置腳本沒有這個前提，必須自己指定時區。
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-  const entries = [{ path: '/', priority: '1.0' }, ...ROUTES];
+  const entries = [{ path: '/', priority: '1.0' }, ...ACTIVE_ROUTES];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${entries.map((r) => `  <url>
@@ -453,4 +477,4 @@ ${entries.map((r) => `  <url>
   console.log(`prerender  sitemap.xml   ${entries.length} 筆（lastmod ${today}）`);
 }
 
-console.log(`prerender  完成 ${ROUTES.length} 頁`);
+console.log(`prerender  完成 ${ACTIVE_ROUTES.length} 頁`);
