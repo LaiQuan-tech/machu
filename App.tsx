@@ -460,6 +460,20 @@ const SCRIPTURE_PATH = '/scripture';
 const isScriptureUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_PATH;
 
+/**
+ * 志工報名是否還收件。普渡法會（9/13）的志工已募足，廟方 2026-09-02 決定停止收件。
+ *
+ * 關掉時會同時處理兩個地方，缺一不可：
+ *   1. 法會報名成功頁的「我要報名志工」入口 —— 不傳 onVolunteer 進去，按鈕整個不出現。
+ *      留著按鈕卻進到截止畫面，等於讓信眾白填一輪期待（CLAUDE.md 記過「按了沒反應」那類問題）。
+ *   2. /volunteer 這個網址 —— 已經分享出去的連結還是會有人點，所以不是擋掉而是
+ *      改顯示截止說明，讓人知道發生什麼事、還能怎麼聯絡。
+ *
+ * 工作人員要預覽表單：網址加 ?preview=1（與法會報名表同一個慣例）。
+ * 下一場法會要重新收件時改回 true 即可，表單與後台名單都原封不動。
+ */
+const VOLUNTEER_OPEN = false;
+
 const VOLUNTEER_PATH = '/volunteer';
 const isVolunteerUrl = (): boolean =>
   typeof window !== 'undefined'
@@ -1496,7 +1510,7 @@ const App: React.FC = () => {
   if (showVolunteer) {
     return (<>
       <Analytics path={analyticsPath} />
-      <Suspense fallback={<PageLoading />}><VolunteerRegistration prefill={volunteerPrefill} onBack={closeVolunteer} /></Suspense>
+      <Suspense fallback={<PageLoading />}><VolunteerRegistration prefill={volunteerPrefill} onBack={closeVolunteer} open={VOLUNTEER_OPEN} /></Suspense>
     </>);
   }
 
@@ -1504,7 +1518,8 @@ const App: React.FC = () => {
     return (<>
       <Analytics path={analyticsPath} />
       <Suspense fallback={<PageLoading />}>
-        <FahuiRegistration onBack={closeFahui} onVolunteer={(contact) => openVolunteer(contact)} />
+        {/* 停止收件時不傳 onVolunteer，成功頁的「我要報名志工」整顆按鈕就不出現 */}
+        <FahuiRegistration onBack={closeFahui} onVolunteer={VOLUNTEER_OPEN ? (contact) => openVolunteer(contact) : undefined} />
       </Suspense>
     </>);
   }

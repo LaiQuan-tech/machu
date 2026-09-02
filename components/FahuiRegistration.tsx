@@ -223,7 +223,8 @@ const inputCls =
 
 interface FahuiVolunteerHandoff { name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string }
 
-/** 報名截止後的畫面：不再收件，但保留法會資訊、聯絡方式與志工報名入口 */
+/** 報名截止後的畫面：不再收件，但保留法會資訊與聯絡方式。
+    （收了 onVolunteer 卻沒用到——志工入口只在成功頁，這裡沒有） */
 function ClosedScreen({ onBack, onVolunteer }: { onBack?: () => void; onVolunteer?: (contact: FahuiVolunteerHandoff) => void }) {
   return (
     <div className="min-h-screen bg-[#F5F0E8] pb-16">

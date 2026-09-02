@@ -44,13 +44,78 @@ const inputCls =
 
 // ── 元件 ──────────────────────────────────────────────────────────────────────
 
+/**
+ * 志工報名截止後的畫面。已經分享出去的 /volunteer 連結還是會有人點，
+ * 所以不是把網址擋掉，而是明白告訴他發生什麼事、還能怎麼聯絡——
+ * 直接跳回首頁只會讓人以為連結壞了。
+ */
+function VolunteerClosedScreen({ onBack }: { onBack?: () => void }) {
+  return (
+    <div className="min-h-screen bg-[#F5F0E8] pb-16">
+      <header className="sticky top-0 z-20 bg-[#F5F0E8]/95 backdrop-blur border-b border-[#C49820]/20">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          {onBack && (
+            <button onClick={onBack} className="flex items-center gap-1 text-[#7C5C1E] shrink-0">
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+              <span className="text-sm">首頁</span>
+            </button>
+          )}
+          <div>
+            <h1 className="font-serif font-bold text-[#7C5C1E] leading-tight">和聖壇志工報名</h1>
+            <p className="text-[11px] text-gray-500">太上慈悲普渡禮懺法會</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#C49820]/30 text-center space-y-2">
+          <p className="font-serif font-bold text-xl text-[#7C5C1E]">本次法會志工報名已截止</p>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            志工人數已募足，感謝十方善信大德發心護持。
+            <br />
+            若仍希望到場幫忙，請直接與本壇聯繫。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#C49820]/20 text-center space-y-3">
+          <p className="text-sm text-[#2E2A22]">
+            聯絡電話：
+            <a href="tel:0953945349" className="font-semibold text-[#7C5C1E] hover:underline py-2 inline-block">0953-945-349</a>
+          </p>
+          {/* 網址取自後台設定、點擊計入導流統計，不要寫死 lin.ee 短網址 */}
+          <a
+            href={getLineUrl()}
+            onClick={() => trackLine('volunteer-closed')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-5 py-2.5 rounded-2xl border border-[#C49820] text-[#7C5C1E] text-sm font-medium hover:bg-[#C49820]/10 transition-colors"
+          >
+            LINE 官方帳號洽詢
+          </a>
+        </div>
+
+        <footer className="pt-4 text-center space-y-1.5">
+          <p className="font-serif font-bold text-[#7C5C1E]">和聖壇</p>
+          <p className="text-xs text-gray-500">台北市中正區晉江街72巷9號</p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 interface VolunteerRegistrationProps {
+  /** 是否還收件。false 時改顯示截止畫面；工作人員可用 ?preview=1 預覽表單 */
+  open?: boolean;
   onBack?: () => void;
   /** 從法會報名表帶過來的已填聯絡資料（點「我要報名志工」時傳入） */
   prefill?: Partial<Contact>;
 }
 
-export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegistrationProps) {
+export default function VolunteerRegistration({ open = true, onBack, prefill }: VolunteerRegistrationProps) {
+  // 與法會報名表同一個慣例：工作人員加 ?preview=1 仍可看到表單
+  const previewMode = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('preview');
+  const closed = !open && !previewMode;
   // 預填 precedence：法會連結帶來的最新資料 > 志工自己的草稿 > 法會草稿 > 空白
   // 聯絡欄位可從法會帶入；出勤時段是志工專屬，只從志工草稿還原。
   const { initial, initAvail, initNote, source } = useMemo(() => {
@@ -114,6 +179,12 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
 
   const handleSubmit = async () => {
     setError('');
+    // 第二層防線。?preview=1 是給工作人員看版面的，不該真的送出一筆；
+    // 只靠畫面切換的話，預覽模式按下去就收件了。
+    if (!open) {
+      setError('志工報名已截止，如需協助請與本壇聯繫。');
+      return;
+    }
     if (!contact.name.trim() || !contact.phone.trim() || !contact.address.trim()) {
       setError('請填寫姓名、電話及通訊地址');
       return;
@@ -154,6 +225,8 @@ export default function VolunteerRegistration({ onBack, prefill }: VolunteerRegi
       setSubmitting(false);
     }
   };
+
+  if (closed) return <VolunteerClosedScreen onBack={onBack} />;
 
   if (submitted) {
     return (
