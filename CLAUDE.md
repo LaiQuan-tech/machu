@@ -174,6 +174,9 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 
   小標 `<h2>` → 大標 `<h3>`（獨立頁是 `<h1>`）→ 分隔飾 → 說明。
 
+  **「獨立頁是 h1」這條 2026-09-04 才補齊**：`/booking`／`/lamps`／`/blessing`／`/repair` 是 2026-08-05 從首頁區塊拆成獨立頁的，標題卻留著區塊版的 `<h3> text-4xl`——結果那幾頁**一個 h1 都沒有**（SEO 與螢幕閱讀器都靠 h1 判斷「這頁在講什麼」），字級也比 `/about`／`/relocation`／`/deities` 的 48px 小一級（廟方回報「標題字大小跟其他頁不同」）。
+  改動時要分清楚：`#bulletin`／`#deities`／`#donation`／`#faq` 仍是**首頁區塊**，維持 `<h3>`；只有 `{page === '…'}` 包住的才是獨立頁。驗收方法：每頁 `document.querySelectorAll('h1')` 應該剛好 1 個。
+
   | | 小標 | 短棒 |
   |---|---|---|
   | 置中的區塊 | `text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3` | 左右各一根 `<span className="w-8 h-1 bg-temple-gold" />` |

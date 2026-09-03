@@ -2353,9 +2353,9 @@ const App: React.FC = () => {
               線上服務
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold mb-2 font-serif">
+            <h1 className="text-4xl sm:text-5xl font-bold mb-2 font-serif">
               預約問事表單
-            </h3>
+            </h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/60" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -2620,9 +2620,9 @@ const App: React.FC = () => {
               點燈服務
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+            <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
               祈福點燈，光明護佑
-            </h3>
+            </h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -2860,7 +2860,7 @@ const App: React.FC = () => {
               神明庇佑
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h3>
+            <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -3416,9 +3416,9 @@ const App: React.FC = () => {
               護持修復
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+            <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
               神尊修復專區
-            </h3>
+            </h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-amber-400/70" />
               <span className="w-2 h-2 rotate-45 bg-amber-500 inline-block" />
