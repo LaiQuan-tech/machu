@@ -48,10 +48,17 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
    一按就把正式站換成幾個月前的版本，連續發生兩次。只要 repo 落後，任何 git 觸發的部署
    （Deploy Hook、GitHub 自動部署、別台機器 clone）都是一顆未爆彈。
    趕時間可以先 `vercel --prod` 讓改動上線，但**當天要補 commit＋push**，不要讓落差過夜。
-1. `npx tsc --noEmit` 通過 → `npm run build` 通過 → 部署。
-2. 部署後三驗：`curl -s https://heshengtan.tw/ | grep -o '/assets/index-[^"]*\.js'` 確認 bundle 更新；本機 preview 跑關鍵流程 DOM 斷言；preview_console_logs 零新錯誤。
+1. **`git push` 必須先成功，被拒絕就停手，不要部署。**
+   `vercel --prod` 上傳的是**本機檔案**、不看 git，所以本機落後遠端時部署＝把別人的改動從正式站抹掉。
+   2026-09-04 我踩過：本機落後 3 個 commit（志工停收、祭祀行事曆、分享圖腳本共 16 檔），
+   push 被拒但我把 push 與 vercel 寫在同一串指令的不同行，部署照跑，正式站被退回舊版約兩分鐘
+   （靠 `og-hero.jpg` 的檔案大小 202452 vs 164570 確認災情）。
+   正確順序是 `git fetch` → 確認沒落後 → push 成功 → 才 build＋deploy；
+   指令要用 `&&` 串起來，讓 push 失敗能擋下部署。
+2. `npx tsc --noEmit` 通過 → `npm run build` 通過 → 部署。
+3. 部署後三驗：`curl -s https://heshengtan.tw/ | grep -o '/assets/index-[^"]*\.js'` 確認 bundle 更新；本機 preview 跑關鍵流程 DOM 斷言；preview_console_logs 零新錯誤。
    誤判防呆：若「頁面載入正常但資料全部抓不到（console 大量 fetch 失敗／對 supabase.co 的請求 521）」＝Supabase 專案暫停，**不是部署失敗**——先去 Dashboard Restore，不要回滾部署。
-3. 報名表正在收件：任何影響 `FahuiRegistration.tsx`、`services/supabase.ts` 送出路徑的改動都算高風險，改完要實測一筆送出（然後用 SQL 刪測試資料，姓名用「測試」開頭以便清理）。
+4. 報名表正在收件：任何影響 `FahuiRegistration.tsx`、`services/supabase.ts` 送出路徑的改動都算高風險，改完要實測一筆送出（然後用 SQL 刪測試資料，姓名用「測試」開頭以便清理）。
 
 ## Supabase 陷阱（每一條都真實踩過）
 
