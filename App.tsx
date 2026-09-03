@@ -45,7 +45,7 @@ import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImag
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
-import SilkSheen, { SilkTiltPrompt } from './components/SilkSheen';
+import SilkSheen from './components/SilkSheen';
 import IncenseSmoke from './components/IncenseSmoke';
 import AboutPage from './components/AboutPage';
 import { renderInline, splitParagraphs } from './components/StoryPage';
@@ -1860,11 +1860,10 @@ const App: React.FC = () => {
                           橫排時 items-* 變成垂直對齊，改回 items-end 讓神明貼齊底部。
                           LINE 浮動鈕在 Hero 期間收起，所以按鈕可以直接沉到底部，不必再上抬。 */}
         <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-end items-center sm:flex-row sm:items-end">
-          {/* 直排是為了讓「傾斜提示」疊在報名鈕正上方；桌機只有報名鈕，
-              改成靠左對齊後與原本的 justify-start 結果相同。 */}
+          {/* 直排原本是為了讓「傾斜提示」疊在報名鈕正上方。那顆提示鈕已移除
+              （陀螺儀效果 2026-09-02 下架），版面保持不變：只有一個子元素時
+              flex-col 的呈現與原本相同，之後要再加東西也還有位置。 */}
           <div className="hero-actions order-2 sm:order-none w-full sm:w-auto sm:flex-1 flex flex-col items-center gap-3 sm:items-start pb-8 sm:pb-0 sm:pl-10 sm:mb-16">
-            {/* 只在 iOS 出現：那裡的陀螺儀要使用者手勢才給權限 */}
-            <SilkTiltPrompt />
             <button
               onClick={openFahui}
               // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。

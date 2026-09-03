@@ -21,32 +21,7 @@ import React, { useEffect, useRef, useState } from 'react';
  * 瀏覽器直接在合成層插值，不必自己跑 requestAnimationFrame 迴圈。
  */
 
-/** iOS 13+ 要求陀螺儀必須在使用者手勢裡申請權限，標準型別沒有涵蓋這個方法 */
-interface OrientationPermission {
-  requestPermission?: () => Promise<'granted' | 'denied' | 'default'>;
-}
-
-type OrientationApi = typeof DeviceOrientationEvent & OrientationPermission;
-
-const orientationApi = (): OrientationApi | undefined =>
-  typeof window === 'undefined' ? undefined : (window.DeviceOrientationEvent as OrientationApi | undefined);
-
-/** 有 requestPermission ＝ iOS 13+：支援陀螺儀，但要先問過使用者 */
-export const tiltNeedsPermission = (): boolean => typeof orientationApi()?.requestPermission === 'function';
-
-/** 提示鈕拿到權限後用這個事件通知光澤層開始聽陀螺儀，省去為兩個相鄰元件架 Context */
-const TILT_GRANTED = 'silk:tilt-granted';
-
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
-
-/**
- * 手機自然握持約前傾 45 度，以此為中位。
- * 左右（gamma）與前後（beta）的滿幅刻意不同：轉手腕的幅度本來就比抬手小，
- * 兩者都用 ±45 度的話，左右方向會像沒反應。實際握著轉，左右約 ±28 度就到底了。
- */
-const TILT_NEUTRAL_DEG = 45;
-const TILT_GAMMA_RANGE_DEG = 28;
-const TILT_BETA_RANGE_DEG = 38;
 
 /**
  * tone：底圖是哪一種材質。
@@ -115,7 +90,10 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
       startAnimation();
     };
 
-    // ── 桌機：游標位置 ──
+    // ── 唯一的輸入來源：游標位置（桌機）──
+    // 手機的陀螺儀版本已於 2026-09-02 移除（廟方：「那個就是好玩，但沒意義」）。
+    // 觸控裝置因此不會 engage，整個 rAF 迴圈不會啟動，Hero 背景維持靜態——
+    // 這也順便省掉手機的持續運算與耗電。
     const onPointerMove = (e: PointerEvent): void => {
       // 觸控裝置的手指移動也會發 pointermove，但那是捲動，不該當成轉動視角
       if (e.pointerType === 'touch') return;
@@ -132,17 +110,6 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
     const onPointerOut = (e: PointerEvent): void => {
       if (e.relatedTarget === null) setAngle(0, 0);
     };
-
-    // ── 手機：陀螺儀 ──
-    const onOrientation = (e: DeviceOrientationEvent): void => {
-      if (e.gamma === null && e.beta === null) return;
-      engage();
-      setAngle(
-        (e.gamma ?? 0) / TILT_GAMMA_RANGE_DEG,
-        ((e.beta ?? TILT_NEUTRAL_DEG) - TILT_NEUTRAL_DEG) / TILT_BETA_RANGE_DEG,
-      );
-    };
-    const listenToTilt = (): void => window.addEventListener('deviceorientation', onOrientation);
 
     // Hero 離開畫面或分頁切到背景後暫停逐幀運算；回來時再從當前位置續接。
     // 這能避免使用者已經在閱讀下方內容，首頁仍長時間占用 CPU／電量。
@@ -166,18 +133,12 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
     window.addEventListener('pointerout', onPointerOut, { passive: true });
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    // Android 與桌機瀏覽器直接掛就有值；iOS 要等使用者按下提示鈕拿到權限後才通知我們。
-    if (orientationApi() && !tiltNeedsPermission()) listenToTilt();
-    window.addEventListener(TILT_GRANTED, listenToTilt);
-
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerout', onPointerOut);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('deviceorientation', onOrientation);
-      window.removeEventListener(TILT_GRANTED, listenToTilt);
     };
   }, []);
 
@@ -195,52 +156,6 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
       </div>
       <div className="silk-spec" />
     </div>
-  );
-};
-
-/** 傾斜手機的小圖示：一支微微左右擺動的手機，示意「轉動裝置」。全站不用 emoji，所以自己畫 */
-const TiltIcon: React.FC = () => (
-  <svg className="silk-tip-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <rect x="7" y="2.5" width="10" height="19" rx="2.4" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M10.6 18.6h2.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M3.4 8.6a7.4 7.4 0 0 0 0 6.8M20.6 8.6a7.4 7.4 0 0 1 0 6.8"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.75" />
-  </svg>
-);
-
-/**
- * 傾斜提示鈕（只在 iOS 出現）
- *
- * iOS 13+ 規定陀螺儀權限必須在使用者手勢裡申請，網頁載入時要不到。
- * 之前把申請掛在「點 Hero 空白處」，結果是多數人不會去點，等於沒開；
- * 改成一顆講明白的提示鈕，按下去就是明確的手勢，權限也拿得到。
- * 非 iOS 不會出現這顆鈕——那些瀏覽器本來就直接有陀螺儀，多一句提示只是雜訊。
- */
-export const SilkTiltPrompt: React.FC<{ className?: string }> = ({ className = '' }) => {
-  // 先渲染成不顯示，掛載後再判斷：伺服器端與首次渲染都摸不到 window
-  const [show, setShow] = useState(false);
-
-  useEffect(() => { setShow(tiltNeedsPermission()); }, []);
-
-  if (!show) return null;
-
-  const ask = (): void => {
-    // 不論准或不准都把提示收起來：准了就看得到效果，不准也不該一直杵在那裡問
-    setShow(false);
-    orientationApi()?.requestPermission?.()
-      .then((state) => { if (state === 'granted') window.dispatchEvent(new Event(TILT_GRANTED)); })
-      .catch(() => { /* 環境不支援：維持待機游移即可，不打擾 */ });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={ask}
-      className={`silk-tip pointer-events-auto inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium tracking-wide whitespace-nowrap ${className}`}
-    >
-      <TiltIcon />
-      傾斜手機，看綢緞反光
-    </button>
   );
 };
 

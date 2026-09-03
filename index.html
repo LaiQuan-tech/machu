@@ -543,28 +543,6 @@
         .silk-flip, .silk-flip-inner, .silk-matte, .silk-spec { transition-duration: 760ms; }
       }
 
-      /* 傾斜提示：iOS 要使用者手勢才給陀螺儀權限，所以 Hero 放一顆明確的提示鈕。
-         做成細框的磁青小籤，跟報名按鈕同一套語彙但份量輕，不搶 CTA。 */
-      .silk-tip.silk-tip {
-        border-radius: 999px;
-        background: rgba(22, 41, 75, 0.62);
-        color: #EBD293;
-        border: 1px solid rgba(226, 197, 124, 0.55);
-        -webkit-backdrop-filter: blur(6px);
-        backdrop-filter: blur(6px);
-        box-shadow: 0 4px 16px rgba(16, 30, 58, 0.35);
-      }
-      .silk-tip.silk-tip:active { background: rgba(30, 53, 96, 0.8); }
-      .silk-tip.silk-tip:focus-visible { outline: 2px solid #F7E6BC; outline-offset: 3px; }
-      @keyframes silkTipRock {
-        0%, 100% { transform: rotate(-9deg); }
-        50%      { transform: rotate(9deg); }
-      }
-      .silk-tip-icon { animation: silkTipRock 2.4s ease-in-out infinite; }
-      @media (prefers-reduced-motion: reduce) {
-        .silk-tip-icon { animation: none; }
-      }
-
       /* ── 進場與視差：沿用「天上聖母經」那一頁的手法 ──
          兩個要點讓它比一般的 fade-in 順：
          1. 觸發點抓在畫面外（桌機 1.5 倍視窗高、手機 1.15 倍），
