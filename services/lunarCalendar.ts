@@ -92,26 +92,50 @@ export function weekdayLabel(ymd: string): string {
   return '日一二三四五六'[new Date(y, m - 1, d).getDay()] ?? '';
 }
 
+/** resolveFeastDate 的結果 */
+export interface ResolvedFeastDate {
+  date: string;      // 'YYYY-MM-DD'
+  /** 農曆三十遇小月，已改列該月最後一天（廿九）。呼叫端必須在畫面上註明 */
+  adjusted: boolean;
+}
+
 /**
- * 把一筆行事曆項目換算成指定國曆年的日期，回傳 'YYYY-MM-DD'；
- * 該年不存在（例如指定閏月但該年沒閏、農曆三十但該月是小月）則回傳 null。
+ * 把一筆行事曆項目換算成指定國曆年的日期；該年沒有這個日子則回傳 null。
  *
- * 呼叫端要把 null 當成「今年沒有這個日子」據實顯示，不要拿鄰近日期頂替——
- * 廟方看到一個錯的日期而毫無提示，比看到「今年無」危險得多。
+ * ── 農曆三十遇小月 ──
+ * 農曆月只有二十九或三十天，「三十」講的就是月底最後一天。小月那年沒有三十，
+ * 民間一律以廿九為準——**鬼門關（七月三十）年年都關**，2026 這種小月年是提前
+ * 一天，不是那年不關。所以這裡回退到廿九並把 adjusted 設為 true，由呼叫端標示
+ * 「今年小月，改列廿九」。回 null 讓前台寫「今年無此日」，在這裡是錯的。
+ * （實測 2024–2035 十二年，七月是小月的只有 2026、2029、2035 三年。）
+ *
+ * 指定閏月但該年沒閏則仍回傳 null：那是真的沒有，隨便挑個月頂替會讓廟方看到
+ * 錯的日期卻毫無察覺。
  */
-export function resolveFeastDate(feast: DeityFeast, year: number): string | null {
+export function resolveFeastDate(feast: DeityFeast, year: number): ResolvedFeastDate | null {
   if (feast.calendarType === 'lunar') {
     if (!feast.lunarMonth || !feast.lunarDay) return null;
-    return lunarToSolar(year, feast.lunarMonth, feast.lunarDay, feast.isLeapMonth);
+    const exact = lunarToSolar(year, feast.lunarMonth, feast.lunarDay, feast.isLeapMonth);
+    if (exact) return { date: exact, adjusted: false };
+    if (feast.lunarDay === 30) {
+      // 農曆月至少二十九天，廿九一定存在（除非指定的閏月該年沒有，那就一起回 null）
+      const monthEnd = lunarToSolar(year, feast.lunarMonth, 29, feast.isLeapMonth);
+      if (monthEnd) return { date: monthEnd, adjusted: true };
+    }
+    return null;
   }
   if (feast.calendarType === 'solar') {
     if (!feast.solarMonth || !feast.solarDay) return null;
     const d = new Date(year, feast.solarMonth - 1, feast.solarDay);
     // 2/30 這種不存在的日期，Date 會自動滾到下個月，要擋掉
     if (d.getMonth() !== feast.solarMonth - 1 || d.getDate() !== feast.solarDay) return null;
-    return `${year}-${String(feast.solarMonth).padStart(2, '0')}-${String(feast.solarDay).padStart(2, '0')}`;
+    const ymd = `${year}-${String(feast.solarMonth).padStart(2, '0')}-${String(feast.solarDay).padStart(2, '0')}`;
+    return { date: ymd, adjusted: false };
   }
-  if (feast.calendarType === 'jieqi' && feast.jieqi) return jieQiInYear(feast.jieqi, year);
+  if (feast.calendarType === 'jieqi' && feast.jieqi) {
+    const d = jieQiInYear(feast.jieqi, year);
+    return d ? { date: d, adjusted: false } : null;
+  }
   return null;
 }
 

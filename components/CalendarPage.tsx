@@ -24,6 +24,7 @@ interface CalendarEntry {
   title: string;
   kind: 'feast' | 'event';
   ruleLabel: string;            // 「農曆三月廿三」「節氣・冬至」
+  adjusted?: boolean;           // 農曆三十遇小月，已改列廿九
   note?: string;
   deityName?: string;
 }
@@ -67,17 +68,17 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return m;
   }, [deities]);
 
-  /** 今年算不出日期的（指定閏月但該年沒閏、農曆三十遇小月）。據實另列，不拿鄰近日期頂替 */
+  /** 今年算不出日期的（指定了閏月但該年沒閏）。據實另列，不拿別的月份頂替 */
   const [entries, unresolved] = useMemo(() => {
     const list: CalendarEntry[] = [];
     const skipped: DeityFeast[] = [];
 
     feasts.forEach(f => {
-      const date = resolveFeastDate(f, year);
-      if (!date) { skipped.push(f); return; }
+      const resolved = resolveFeastDate(f, year);
+      if (!resolved) { skipped.push(f); return; }
       list.push({
-        key: `f-${f.id}`, date, title: f.title, kind: 'feast',
-        ruleLabel: feastRuleLabel(f), note: f.note || undefined,
+        key: `f-${f.id}`, date: resolved.date, title: f.title, kind: 'feast',
+        ruleLabel: feastRuleLabel(f), adjusted: resolved.adjusted, note: f.note || undefined,
         deityName: f.deityId ? deityName.get(f.deityId) : undefined,
       });
     });
@@ -167,6 +168,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <p className="font-serif text-lg text-temple-dark truncate">{nextUp.title}</p>
                     <p className="text-sm text-gray-600">
                       {nextUp.date.slice(5).replace('-', ' / ')}（{weekdayLabel(nextUp.date)}）・{nextUp.ruleLabel}
+                      {nextUp.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                     </p>
                   </div>
                 </div>
@@ -204,6 +206,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                               </div>
                               <p className="text-sm text-gray-500 mt-1">
                                 {x.ruleLabel}
+                                {x.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
                                 {x.deityName && `　${x.deityName}`}
                               </p>
@@ -226,8 +229,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     ))}
                   </ul>
                   <p className="text-xs text-gray-400 mt-3 leading-relaxed">
-                    農曆閏月每十九年才輪七次，農曆三十日也只有大月才有。
-                    這幾筆今年無對應日期，並非漏列。
+                    農曆閏月每十九年才輪七次，這幾筆今年沒有對應的日子，並非漏列。
                   </p>
                 </div>
               )}

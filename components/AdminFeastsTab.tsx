@@ -21,6 +21,7 @@ import {
 import { DeityFeast, DeityFeastData, DeityRecord, FeastCalendarType } from '../types';
 import {
   LUNAR_MONTH_LABELS_BASE, LUNAR_DAYS, JIEQI_NAMES, resolveFeastDate, feastRuleLabel, weekdayLabel,
+  ResolvedFeastDate,
 } from '../services/lunarCalendar';
 
 const inputClass =
@@ -32,6 +33,21 @@ const blank = (sortOrder: number): DeityFeastData => ({
   solarMonth: null, solarDay: null, jieqi: null,
   note: '', isVisible: false, sortOrder,
 });
+
+/**
+ * 換算結果的寫法。農曆三十遇小月時已自動改列廿九（鬼門關那類月底的日子年年都有，
+ * 只是小月提前一天），這裡一定要標出來——換算過的日期若跟原日期長得一樣，
+ * 廟方會以為自己填的三十在那年真的存在。
+ */
+const fmt = (r: ResolvedFeastDate | null, when: string): React.ReactNode => {
+  if (!r) return <span className="text-amber-700">{when}無此日</span>;
+  return (
+    <>
+      {r.date}（週{weekdayLabel(r.date)}）
+      {r.adjusted && <span className="text-amber-700">・小月改列廿九</span>}
+    </>
+  );
+};
 
 const TYPE_LABEL: Record<FeastCalendarType, string> = {
   lunar: '農曆固定日',
@@ -265,8 +281,8 @@ const AdminFeastsTab: React.FC = () => {
                     <CalendarDays className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" aria-hidden="true" />
                     <p className="leading-relaxed">
                       <span className="text-gray-400">{feastRuleLabel(item)} → </span>
-                      {thisYear}：{d1 ? `${d1}（週${weekdayLabel(d1)}）` : <span className="text-amber-700">今年無此日</span>}
-                      　{thisYear + 1}：{d2 ? `${d2}（週${weekdayLabel(d2)}）` : <span className="text-amber-700">明年無此日</span>}
+                      {thisYear}：{fmt(d1, '今年')}
+                      　{thisYear + 1}：{fmt(d2, '明年')}
                     </p>
                   </div>
                 </div>
