@@ -28,7 +28,7 @@ const inputClass =
   'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:border-temple-red';
 
 const blank = (sortOrder: number): DeityFeastData => ({
-  title: '', deityId: null, calendarType: 'lunar',
+  title: '', calendarType: 'lunar',
   lunarMonth: 1, lunarDay: 1, isLeapMonth: false,
   solarMonth: null, solarDay: null, jieqi: null,
   note: '', isVisible: false, sortOrder,

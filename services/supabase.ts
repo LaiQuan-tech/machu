@@ -2265,7 +2265,6 @@ export const saveRelocationHome = async (v: RelocationHome): Promise<void> => {
 const mapFeastRow = (r: Record<string, unknown>): DeityFeast => ({
   id:           String(r.id),
   title:        String(r.title ?? ''),
-  deityId:      (r.deity_id as string | null) ?? null,
   calendarType: (r.calendar_type as DeityFeast['calendarType']) ?? 'lunar',
   lunarMonth:   r.lunar_month === null || r.lunar_month === undefined ? null : Number(r.lunar_month),
   lunarDay:     r.lunar_day   === null || r.lunar_day   === undefined ? null : Number(r.lunar_day),
@@ -2281,7 +2280,6 @@ const mapFeastRow = (r: Record<string, unknown>): DeityFeast => ({
 /** 資料列。型態決定要送哪幾個欄位——送錯會撞上 deity_feasts_date_fields 這條 CHECK */
 const feastRow = (d: DeityFeastData) => ({
   title:         d.title,
-  deity_id:      d.deityId,
   calendar_type: d.calendarType,
   lunar_month:   d.calendarType === 'lunar' ? d.lunarMonth : null,
   lunar_day:     d.calendarType === 'lunar' ? d.lunarDay   : null,

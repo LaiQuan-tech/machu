@@ -661,8 +661,6 @@ export type FeastCalendarType = 'lunar' | 'solar' | 'jieqi';
 
 export interface DeityFeastData {
   title: string;
-  /** 選填：關聯到本壇供奉的神尊（deities.id） */
-  deityId: string | null;
   calendarType: FeastCalendarType;
   /** calendarType === 'lunar' 時有值 */
   lunarMonth: number | null;

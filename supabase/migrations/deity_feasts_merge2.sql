@@ -13,7 +13,7 @@ BEGIN;
 UPDATE public.deity_feasts SET
   title    = '觀世音菩薩聖誕',
   deity_id = NULL,
-  note     = '本壇奉祀鎮殿觀音、天觀音，同日祝壽。'
+  note     = ''
 WHERE title = '鎮殿觀音聖誕';
 
 DELETE FROM public.deity_feasts WHERE title = '天觀音聖誕';

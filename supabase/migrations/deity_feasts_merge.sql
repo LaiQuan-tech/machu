@@ -3,10 +3,10 @@
 --
 -- 本壇 38 尊裡有幾組是「同一位神明的不同尊」，聖誕當然同一天。原本一尊一筆，
 -- 前台會出現連續七列日期一模一樣、只有名字不同的項目，讀起來像重複貼上。
--- 廟方決定合併顯示：一組一筆，尊號寫進 note 讓信眾仍看得到本壇奉祀哪幾尊。
+-- 廟方決定合併顯示：一組一筆，尊號**不寫進 note**：標題已經說明是哪一位神明，再列一次本壇奉祀哪幾尊是重複資訊（廟方 2026-09-09 指出）。
 --
--- 合併後 deity_id 設為 NULL：一筆對應多尊，schema 是 1:1 對不上，
--- 硬指其中一尊會讓後台顯示「這筆屬於天上大聖母」而其餘六尊憑空消失，比留白更誤導。
+-- -- deity_id 一併設 NULL。該欄後來整個廢除（見 deity_feasts_drop_deity_id.sql）：
+-- 歲時祭曆與祀奉神尊綁在一起只會讓設定變麻煩，實際上也沒有任何地方會顯示。
 
 BEGIN;
 
@@ -14,7 +14,7 @@ BEGIN;
 UPDATE public.deity_feasts SET
   title    = '天上聖母聖誕',
   deity_id = NULL,
-  note     = '本壇奉祀天上大聖母、開基天上二聖母、天上三聖母、天上四聖母、天上五聖母、湄洲聖母、茉莉媽祖，同日祝壽。'
+  note     = ''
 WHERE title = '天上大聖母聖誕';
 
 DELETE FROM public.deity_feasts WHERE title IN (
@@ -27,7 +27,7 @@ DELETE FROM public.deity_feasts WHERE title IN (
 UPDATE public.deity_feasts SET
   title    = '濟公師父聖誕',
   deity_id = NULL,
-  note     = '本壇奉祀濟公三師父、濟公五師父，同日祝壽。'
+  note     = ''
 WHERE title = '濟公三師父聖誕';
 
 DELETE FROM public.deity_feasts WHERE title = '濟公五師父聖誕';
@@ -36,7 +36,7 @@ DELETE FROM public.deity_feasts WHERE title = '濟公五師父聖誕';
 UPDATE public.deity_feasts SET
   title    = '三太子聖誕',
   deity_id = NULL,
-  note     = '本壇奉祀老駕太子、和緣太子、顧爐太子，同日祝壽。'
+  note     = ''
 WHERE title = '老駕太子聖誕';
 
 DELETE FROM public.deity_feasts WHERE title IN ('和緣太子聖誕', '顧爐太子聖誕');
