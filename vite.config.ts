@@ -28,7 +28,9 @@ const HERO_FILES = [
   'hero-jigong.webp', 'hero-jigong.png',
   'hero-sanma.webp',  'hero-sanma.png',
   'hero-erma.webp',   'hero-erma.png',
-  'hero-gold.jpg',    // 背景金箔，換了一樣會被舊快取卡住
+  // 兩張背景都要：正式站用金箔牆，?hero=blue 用藍金流體畫（見 App.tsx 的 HERO_VARIANTS）
+  'hero-gold.jpg',
+  'hero-blue.jpg',
 ];
 
 const heroVersions = (): Record<string, string> => {

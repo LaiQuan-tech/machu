@@ -28,8 +28,11 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
  *   'silk'（預設）綢緞織錦——有「翻面帶」那一層亮度反轉，因為蠶絲換個角度真的會由亮翻暗。
  *   'gold'         金箔／金漆牆——金屬只有反射強弱，沒有翻面。亮度反轉疊在金黃上會變橄欖綠，
  *                  所以這個模式關掉翻面層，只留光帶與背光（樣式見 index.html 的 .silk-gold）。
+ *   'flat'         完全不反光，只鋪底圖。水墨、流體畫這類本來就沒有金屬或緞面光澤的材質，
+ *                  加上會動的光帶只會像鏡頭髒了。這個模式連事件監聽與動畫迴圈都不掛，
+ *                  不是把效果調到看不見而已。
  */
-interface SilkSheenProps { src: string; className?: string; tone?: 'silk' | 'gold' }
+interface SilkSheenProps { src: string; className?: string; tone?: 'silk' | 'gold' | 'flat' }
 
 const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk' }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -39,6 +42,8 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // flat 不反光：直接不掛 pointermove／陀螺儀與 rAF 迴圈
+    if (tone === 'flat') return;
 
     let engaged = false;
     let frame = 0;
@@ -140,7 +145,15 @@ const SilkSheen: React.FC<SilkSheenProps> = ({ src, className = '', tone = 'silk
       window.removeEventListener('pointerout', onPointerOut);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [tone]);
+
+  if (tone === 'flat') {
+    return (
+      <div ref={ref} className={`silk-stage ${className}`} aria-hidden="true">
+        <img className="silk-base" src={src} alt="" />
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className={`silk-stage ${tone === 'gold' ? 'silk-gold' : ''} ${live ? 'silk-live' : ''} ${className}`} aria-hidden="true">

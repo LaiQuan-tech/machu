@@ -423,6 +423,29 @@ const HERO_SLIDESHOW = false;
  * index.html 的 preload 由 vite.config.ts 的 plugin 補上同一個版號，兩邊要一致。
  */
 declare const __HERO_V__: Record<string, string>;
+/**
+ * Hero 底圖版本（內部比稿用）。
+ *
+ * 正式站一律金箔牆；網址加 `?hero=blue` 才換成藍金流體畫。廟方 2026-09-09 要求
+ * 兩版並存以便比較，但**不是把新版上線**——所以預設值就是現況，沒有任何連結指過去、
+ * 不在 sitemap、也不影響 SEO（query string 不會產生新的可索引網址）。
+ * 比的是真正的首頁：三尊、導覽列、香煙、按鈕全都在，不是靜態截圖。
+ *
+ * 決定要換的時候，把 DEFAULT_HERO 改成 'blue' 即可；連帶要處理的是
+ * index.html 的 preload、還有 og-hero.jpg（那張是用金箔底算出來的，見 build-og-hero.js）。
+ */
+const HERO_VARIANTS = {
+  // tone 見 SilkSheen：gold＝金屬反光、flat＝完全不反光（流體畫沒有緞面光澤）
+  gold: { file: 'hero-gold.jpg', tone: 'gold' as const },
+  blue: { file: 'hero-blue.jpg', tone: 'flat' as const },
+};
+const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
+const HERO = (() => {
+  if (typeof window === 'undefined') return HERO_VARIANTS[DEFAULT_HERO];
+  const v = new URLSearchParams(window.location.search).get('hero');
+  return v && v in HERO_VARIANTS ? HERO_VARIANTS[v as keyof typeof HERO_VARIANTS] : HERO_VARIANTS[DEFAULT_HERO];
+})();
+
 const heroSrc = (file: string): string => {
   const v = __HERO_V__?.[file];
   return v ? `/${file}?v=${v}` : `/${file}`;
@@ -1823,22 +1846,25 @@ const App: React.FC = () => {
       {/* Hero Section */}
       <section id="home" className="hero-scene relative min-h-[100svh] flex items-center justify-center overflow-hidden">
         <span id="main-content" className="sr-only">主要內容</span>
-        {/* 背景：金箔牆（廟方提供的底圖），連同金屬反光一起由 SilkSheen 畫。
+        {/* 背景：由 HERO_VARIANTS 決定（正式站金箔牆，?hero=blue 換藍金流體畫）。
             底圖與翻面層必須像素對齊，所以兩張都交給元件，不在這裡各放一張。
-            圖 1491×996（3:2）；滿版金箔沒有主體，任何方向裁切都成立，一律置中。
-            前一版的金色祥雲織錦是 /hero-clouds.jpg，檔案留著，要換回只改這一行。
+            滿版沒有主體，任何方向裁切都成立，一律置中。
             注意排序：反光層必須在下面那道深色遮罩「之前」，
-            否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。 */}
-        <SilkSheen src={heroSrc('hero-gold.jpg')} tone="gold" className="absolute inset-0 z-0 overflow-hidden" />
+            否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
+            更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
+        <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />
         {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
-            金箔底很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把金壓濁了。
-            所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓，讓金完整亮出來——
-            按鈕是深藍底金字，本來就是深壓淺，不需要遮罩幫忙。 */}
+            底圖很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把顏色壓濁了。
+            所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓——
+            按鈕是深藍底金字，本來就是深壓淺，不需要遮罩幫忙。
+            這道遮罩兩個底圖共用。藍金版實測 1440×900：最暗 17.6:1，壓在右上白金
+            大理石那片的「祈福點燈／更多／登入」5.75:1（AA 要求 4.5:1）。
+            換底圖時要重量導覽列最右邊那幾項，別只看整體亮不亮。 */}
         <div
           className="absolute inset-0 z-0"
           style={{
-            // 用純黑而不是褐色來壓暗：褐色疊在金上會把顏色帶到橄欖綠，整片金看起來像髒了；
-            // 黑色是等比降低三個通道，色相不變，看起來只是「比較暗的金」。
+            // 用純黑而不是有色的遮罩來壓暗：帶色的疊上去會把底圖的色相拉走
+            // （褐色疊在金上會變橄欖綠），黑色是等比降低三個通道，色相不變。
             background: 'linear-gradient(to bottom, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.32) 12%, rgba(0,0,0,0.10) 24%, rgba(0,0,0,0) 36%, rgba(0,0,0,0) 100%)',
           }}
         />
