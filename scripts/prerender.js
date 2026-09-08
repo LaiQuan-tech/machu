@@ -60,7 +60,7 @@ const ROUTES = [
     // 不寫死任何日期。寫死等於多一份會過期又沒人會回來改的清單。
     // 與 App.tsx 的 ENABLE_CALENDAR 一起開關。關閉時不預渲染、也不進 sitemap——
     // 留著會讓 Google 收錄一頁還沒建好的行事曆。網址本身仍由 SPA 萬用規則供應。
-    enabled: false,
+    enabled: true,
     path: '/calendar',
     priority: '0.7',
     title: '祭祀行事曆｜神明聖誕與壇務活動｜台北古亭和聖壇',

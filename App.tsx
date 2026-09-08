@@ -189,20 +189,23 @@ const TAG_PINNED = 'bg-temple-red text-white';
 const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
 
 /**
- * 祭祀行事曆（/calendar）暫時不對外露出——廟方正在後台建立聖誕與活動資料，
- * 資料齊全前不要讓信眾看到半份行事曆。
+ * 祭祀行事曆（/calendar）。2026-09-09 上線，廟方確認完 28 筆聖誕日期後開啟。
  *
- * 改成 true 要同時處理四個地方（少一個就會不一致）：
- *   1. 這個旗標
- *   2. `scripts/prerender.js` 的 ROUTES 裡 /calendar 那筆的 enabled  ← sitemap 也是由它產生
- *   3. `vercel.json` 把 `/calendar → /calendar.html` 的 rewrite 加回萬用規則之前
- *   4.（本檔）NAV_MORE 的項目會自動跟著這個旗標出現，不必另外改
+ * 這個旗標要與另外兩個地方一起開關，少一個就會不一致：
+ *   1. `scripts/prerender.js` 的 ROUTES 裡 /calendar 那筆的 enabled  ← sitemap 也由它產生
+ *   2. `vercel.json` 的 `/calendar → /calendar.html` rewrite，必須排在萬用規則之前
+ *   （NAV_MORE 的項目會自動跟著這個旗標出現，不必另外改）
  *
- * **刻意不擋網址**：關掉時只從導覽列與搜尋引擎移除，直接輸入 /calendar 仍然打得開。
+ * **關掉時刻意不擋網址**：只從導覽列與搜尋引擎移除，直接輸入 /calendar 仍然打得開。
  * 廟方要一邊在後台建資料、一邊開前台確認換算對不對，照 ENABLE_REPAIR 那樣讓網址
- * 跳回首頁的話就沒辦法預覽了。沒有連結指過去、也不在 sitemap 裡，信眾不會走到。
+ * 跳回首頁就沒辦法預覽了。沒有連結指過去、也不在 sitemap 裡，信眾不會走到。
+ *
+ * **開啟前先確認資料庫有 is_visible = true 的資料**，否則信眾會看到
+ * 「行事曆尚未建立」。這與預渲染無關：prerender 只產生 meta 與 noscript 說明的
+ * 靜態殼（見 dist/calendar.html），列表是執行期才向 Supabase 抓的，所以資料開啟
+ * 後前台立刻就有，不必重新建置。
  */
-const ENABLE_CALENDAR = false;
+const ENABLE_CALENDAR = true;
 
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 

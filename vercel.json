@@ -29,6 +29,10 @@
       "destination": "/scripture.html"
     },
     {
+      "source": "/calendar",
+      "destination": "/calendar.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
