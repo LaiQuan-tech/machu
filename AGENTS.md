@@ -60,7 +60,6 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 ## 待辦與未修事項
 
 - 主官網上線 checklist：`showFahui` 改 false、index.html title 換回官網用、hero 圖 fallback 是外連 Unsplash 建議換本地圖、Google Maps iframe 在部分環境載入失敗待驗證。
-- 揪團功能停用中（`ENABLE_GROUP_BOOKING=false`）；程式與 RLS 已相容，重啟前跑一次完整流程測試。
 - 歷史遺留：檢測報告 17 項問題已全修（2026-07-06），詳見 memory 的 project_main_site_prelaunch。
 
 ## Changelog

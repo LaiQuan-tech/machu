@@ -104,11 +104,12 @@ async function submitSequentially<T>(items: T[], send: (item: T) => Promise<unkn
   return ok;
 }
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
-// 揪團（共享報名場次）。2026-09-02 於 feature/group-booking 分支開啟，
-// **普渡法會（9/13）結束後才合併到 main 上線**。
-// 不先在 main 改的理由：main 上只要是 true，廟方按後台的「重新發布」就會
-// 觸發 Deploy Hook 從 git 重建，未測過的功能會直接上正式站（CLAUDE.md 記載
-// 這類事故發生過兩次）。
+// 揪團（共享報名場次）：建立場次 → 拿 ?share=<id> 連結 → 親友各自填 → 一起送出。
+// 支援點燈／祈福／問事，連結 7 天到期。2026-09-09 普渡報名結束後開啟。
+//
+// **要再停用時，記得這個旗標是「會被部署」的**：main 上的值就是正式站的值，
+// 廟方按後台「重新發布」會觸發 Deploy Hook 從 git 重建。所以未驗過的改動要留在
+// 分支上，不要先在 main 翻成 true（CLAUDE.md 部署紀律第 0 條，這類事故發生過兩次）。
 const ENABLE_GROUP_BOOKING = true;
 
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
