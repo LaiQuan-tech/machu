@@ -138,6 +138,21 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **Tailwind preflight 的預設邊框色是 gray-200**（`rgb(229,231,235)`，看起來就是白線）。所以**不要靠加減 `border-*` class 來決定「有沒有線」**：class 一移除顏色立刻跳回那個灰白色，而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——那 300ms 就是一條很明顯的白線（導覽列踩過，廟方回報「往下滑 menu 下緣會出現白線」）。正確作法是**邊框常駐、只換顏色**：`border-b` 一直掛著，在 `border-transparent` 與目標色之間過渡。
 - **導覽高亮（`handleScroll` 的捲動高亮）**：判定線用 `innerHeight*0.35`（夾在 120–300），不要改回固定 120px——`section[id]` 的 `scroll-margin-top` 是 80px，捲到定位時區塊頂端就在 80，跟 120 只差 40px，平滑捲動少捲 41px 高亮就退回上一個區塊（症狀：點「祀奉神尊」卻亮「關於我們」）。另有 `navLockRef`：點導覽後的平滑捲動期間停掉捲動高亮，否則途中每經過一個區塊就改一次。換頁的 `window.scrollTo` 要指定 `behavior:'instant'`，CSS 有全域 `scroll-behavior: smooth`。
 
+## 流量追蹤與 UTM（2026-09-09 建置）
+
+- **追蹤碼掛載在 `components/Analytics.tsx`，編號填在後台「追蹤碼」分頁**（`site_settings` 的 `ga4_id`／`meta_pixel_id`／`gtm_id`）。刻意只存編號不存整段 `<script>`：後台一被盜就能對所有訪客植入任意腳本。
+  **2026-09-09 實測：GTM 容器 `GTM-NW9Z5NWQ` 是空的**——`curl 'https://www.googletagmanager.com/gtm.js?id=GTM-NW9Z5NWQ'` 回 `"tags":[]`、`"predicates":[]`、`"rules":[]`，GA4 與像素兩欄也空白。**等於整站沒有在收任何流量資料**，卻讓每個訪客白載 331KB 的 GTM。容器內容是公開的，要確認廟方到底掛了什麼直接 curl 那支 gtm.js 抓 `"tags":`，不必登入 GTM 後台。
+  建議改成後台直接填 GA4 ID、清空 GTM 欄：`Analytics.tsx` 本來就內建 SPA 換頁的 page_view，走 GTM 反而要在容器裡自己建 `spa_page_view` 觸發器（現在沒有），多一層就是多一個沒人維護的地方。
+- **`<Analytics>` 掛在 App 的四個 return 分支**（首頁／法會／聖母經／志工），那四個分支的根節點型別不同，**切換分支時 React 會整個卸載再重新掛載**。所以它的狀態（`loaded`／`settings`／`lastSentPath`／`entryViewSent`）**一律放模組層級，不要用 useRef**——放 ref 就會每切一次分支重新注入一次 GTM／GA4 腳本，並且把那一次當成「進站第一次」再送一遍 UTM。
+- **StrictMode 會讓「只跑一次的守衛 + cancelled 旗標」這個組合永遠載不起來**：第一次掛載啟動 fetch → cleanup 把 `cancelled` 設 true → 第二次掛載被 `loadedRef` 擋掉直接 return → fetch 回來時已經沒有人採用它。正式站沒有 StrictMode 所以看不出來，**但本機也就永遠驗不了追蹤碼**——空的 GTM 容器長期沒被發現，這是原因之一。兩者只能擇一。
+- **UTM 來源歸因在 `services/attribution.ts`**。四件事各有理由，改動前先讀完：
+  1. 進站時把 `utm_*` 收進 **sessionStorage**（不是 localStorage）。UTM 描述的是「這一次來訪」；放 localStorage 會讓幾個月前那檔活動的來源黏在裝置上，之後每一筆報名都算給那一檔。
+  2. `withKeptParams(path, alsoDrop)` 給所有 pushState 用：洗掉 `utm_*`／`fbclid`／`gclid`，**保留功能性參數**。原本推的是純路徑，所以 `?share=`（揪團）與 `?preview=1`（工作人員預覽）進站後點一下導覽就消失、重新整理找不回那場共享報名——那是既有 bug，一併修掉了。
+  3. **`closeVolunteer` 必須額外拿掉 `volunteer`**：`isVolunteerUrl()` 認得 `?volunteer`，只換路徑而留著這個參數等於沒關掉。
+  4. **進站那一頁刻意不清網址列上的 UTM**。GA4／GTM 初始化時會讀真實的 `document.location`，一載入就清掉的話，日後廟方把 GA4 掛進 GTM 容器（而不是後台那個欄位）歸因就整個失效。UTM 是在**第一次站內換頁**時才從網址上拿掉的。
+  **只有進站第一次的 page_view 帶 UTM**，換頁不帶——同一個來源重複宣告只會在報表製造雜訊。也刻意不把 `?share=<uuid>`／`?admin=1` 送進 `page_location`：那是識別碼不是流量維度，送進去只會製造高基數的雜訊。
+- **規劃全文與 UTM 命名對照表在 `docs/utm-plan.md`**，包含廟方要照抄的 source／medium／campaign 固定值。三條鐵律：站內連結絕對不加 UTM（會被判成新的來訪、蓋掉原本的歸因）、值一律小寫英數、一個檔期固定一組值不要手打。
+
 ## SEO 與 AI 檢索（2026-08-10 建置）
 
 本站是純前端渲染的 SPA，**原始 HTML 的可見文字是 0 個字**。Google 會執行 JS 所以看得到，但 GPTBot／ClaudeBot／PerplexityBot 這類 AI 檢索器**不執行 JS**——沒有下面這些東西，AI 對本站一無所知。
@@ -206,6 +221,7 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   沒有任何連結指過去、不在 sitemap、query string 不會產生新的可索引網址，所以不影響 SEO。
   **要換過去的話，連帶要處理三件事**：`index.html` 的 preload 指向的是金箔牆；`og-hero.jpg` 是用金箔底反推暗化比例算出來的（見 `build-og-hero.js`），換底圖等於整支腳本的背景邏輯要重寫、三尊座標也要重量；還有全站配色是廟紅＋金，往下捲一屏就回到紅金，首屏藍金會像兩個網站。
   藍金版用 `tone="flat"`（SilkSheen 新增的模式）：流體畫沒有金屬或緞面光澤，會動的光帶只會像鏡頭髒了。flat 連 pointermove／陀螺儀監聽與 rAF 迴圈都不掛，不是把效果調到看不見。
+- **UTM 第二層「把來源存進報名紀錄」尚未做**（2026-09-09 規劃，`docs/utm-plan.md` 執行順序第 3 步）：GA4 只說得出「300 人從 IG 來」，廟方真正要的是「這 12 筆點燈是抖音那支影片帶來的」；而且 LINE 不送 referrer，GA4 會把它全算成直接流量，**只有這一層看得到 LINE 到底有沒有效**。作法是每張轉換表加一個 `source text` 存 `line/broadcast/pudu2026` 這種扁平字串，注入點集中在 `services/supabase.ts` 的 9 個 submit 函式（不必動 UI）。沒 UTM 的訪客退回 referrer 網域、再沒有就存 `direct`，讓每一筆都有來源。注意：anon 只有 INSERT 沒有 SELECT，加欄位不必改 RLS；**不要把 source 寫進 localStorage 草稿**，草稿會存好幾天、還原時帶著過期來源。
 - 遷廟募款區塊尚未動工（使用者要求「新增一個區塊」，待確認目標金額／進度條、收款方式、說明內容、後台可編輯欄位）。
 - **揪團已上線**（2026-09-09，普渡報名結束後合併 `feature/group-booking` 的 a4fd261）。
   資料表 `shared_sessions`／`shared_session_entries` 與 RPC `get_shared_session` 都在資料庫裡。流程：建立共享場次 → 拿 `?share=<id>` 連結 → 親友各自填 → 一起送出；支援點燈／祈福／問事，連結 7 天到期。
