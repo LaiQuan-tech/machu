@@ -12,7 +12,7 @@
  * 也是有意義的文字。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { getDeityFeasts, getBlessingEvents } from '../services/supabase';
 import { DeityFeast, BlessingEventRecord } from '../types';
 import { resolveFeastDate, feastRuleLabel, solarToLunarLabel, weekdayLabel } from '../services/lunarCalendar';
@@ -118,7 +118,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return m;
   }, [shown]);
 
-  const nextUp = entries.find(x => x.date >= today);
 
   return (
     <div className="relative pt-20 bg-temple-bg min-h-screen">
@@ -169,20 +168,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </p>
           ) : (
             <>
-              {nextUp && year === thisYear && (
-                <div className="mb-10 rounded-2xl border border-temple-gold/40 bg-white px-5 py-4 flex items-center gap-4">
-                  <CalendarDays className="w-6 h-6 text-temple-red shrink-0" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500 mb-0.5">接下來</p>
-                    <p className="font-serif text-lg text-temple-dark truncate">{nextUp.title}</p>
-                    <p className="text-sm text-gray-600">
-                      {nextUp.date.slice(5).replace('-', ' / ')}（{weekdayLabel(nextUp.date)}）・{nextUp.ruleLabel}
-                      {nextUp.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* 過去的日子預設收起。用文字按鈕而不是小圖示——信眾以長者居多，
                   講明白「已過去的 N 項」比一個箭頭清楚 */}
               {pastCount > 0 && pastCount < entries.length && (
