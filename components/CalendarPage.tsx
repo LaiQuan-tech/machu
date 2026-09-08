@@ -41,6 +41,15 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [events, setEvents] = useState<BlessingEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  /**
+   * 今年已經過去的日子預設收起來。
+   *
+   * 這一頁列的是整年。九月打開時，三月到八月的二十二筆全排在上面，第一個還沒到的
+   * 日子落在頁面 62% 的位置（實測手機 390px：3456px / 全頁 5595px）——信眾要滑過
+   * 二十二筆灰掉的舊資料才看得到普渡法會，等於沒顯示。所以預設只給「今天以後」，
+   * 想看整年再展開。切到明年時整年都還沒到，這個開關自然不出現。
+   */
+  const [showPast, setShowPast] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -92,17 +101,23 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return [list, skipped];
   }, [feasts, events, year]);
 
+  const today = todayYmd();
+  /** 今年才需要區分過去與未來；明年整年都還沒到 */
+  const pastCount = year === thisYear ? entries.filter(x => x.date < today).length : 0;
+  // 全部都過去了（例如年底）就照常列出來，否則會變成一片空白
+  const hidePast = pastCount > 0 && pastCount < entries.length && !showPast;
+  const shown = hidePast ? entries.filter(x => x.date >= today) : entries;
+
   const byMonth = useMemo(() => {
     const m = new Map<number, CalendarEntry[]>();
-    entries.forEach(x => {
+    shown.forEach(x => {
       const mo = Number(x.date.slice(5, 7));
       if (!m.has(mo)) m.set(mo, []);
       m.get(mo)!.push(x);
     });
     return m;
-  }, [entries]);
+  }, [shown]);
 
-  const today = todayYmd();
   const nextUp = entries.find(x => x.date >= today);
 
   return (
@@ -166,6 +181,17 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </p>
                   </div>
                 </div>
+              )}
+
+              {/* 過去的日子預設收起。用文字按鈕而不是小圖示——信眾以長者居多，
+                  講明白「已過去的 N 項」比一個箭頭清楚 */}
+              {pastCount > 0 && pastCount < entries.length && (
+                <button type="button" onClick={() => setShowPast(v => !v)}
+                  className="w-full mb-8 py-3 px-4 rounded-xl border border-dashed border-temple-gold/50 text-sm text-gray-600 hover:border-temple-gold hover:text-temple-dark transition-colors">
+                  {showPast
+                    ? `收起今年已過去的 ${pastCount} 項`
+                    : `本頁只列今天以後的日子・展開今年已過去的 ${pastCount} 項`}
+                </button>
               )}
 
               <div className="space-y-10">
