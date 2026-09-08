@@ -2258,7 +2258,7 @@ export const saveRelocationHome = async (v: RelocationHome): Promise<void> => {
 };
 
 
-// ─── 祭祀行事曆（deity_feasts）────────────────────────────────────────────────
+// ─── 歲時祭曆（deity_feasts）────────────────────────────────────────────────
 // 每年重複的日子（聖誕、節日）。單次活動在 blessing_events，兩張表刻意分開，
 // 理由見 supabase/migrations/deity_feasts.sql 的檔頭。
 
