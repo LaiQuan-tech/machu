@@ -13,8 +13,8 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, RefreshCw } from 'lucide-react';
-import { getDeityFeasts, getBlessingEvents, getDeities } from '../services/supabase';
-import { DeityFeast, BlessingEventRecord, DeityRecord } from '../types';
+import { getDeityFeasts, getBlessingEvents } from '../services/supabase';
+import { DeityFeast, BlessingEventRecord } from '../types';
 import { resolveFeastDate, feastRuleLabel, solarToLunarLabel, weekdayLabel } from '../services/lunarCalendar';
 
 interface CalendarEntry {
@@ -26,7 +26,6 @@ interface CalendarEntry {
   ruleLabel: string;            // 「農曆三月廿三」「節氣・冬至」
   adjusted?: boolean;           // 農曆三十遇小月，已改列廿九
   note?: string;
-  deityName?: string;
 }
 
 const todayYmd = (): string => {
@@ -40,7 +39,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [year, setYear] = useState(thisYear);
   const [feasts, setFeasts] = useState<DeityFeast[]>([]);
   const [events, setEvents] = useState<BlessingEventRecord[]>([]);
-  const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -48,12 +46,15 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     let alive = true;
     (async () => {
       setLoading(true);
-      // 三者各自獨立：其中一個掛掉不該讓整頁空白，所以用 allSettled 各自處理
-      const [f, e, d] = await Promise.allSettled([getDeityFeasts(), getBlessingEvents(), getDeities()]);
+      // 兩者各自獨立：其中一個掛掉不該讓整頁空白，所以用 allSettled 各自處理
+      const [f, e] = await Promise.allSettled([getDeityFeasts(), getBlessingEvents()]);
       if (!alive) return;
       setFeasts(f.status === 'fulfilled' ? f.value : []);
-      setEvents(e.status === 'fulfilled' ? e.value.filter(x => x.isActive) : []);
-      setDeities(d.status === 'fulfilled' ? d.value : []);
+      // **刻意不濾 isActive**：那個旗標管的是「在祈福活動頁上架、還能報名」，
+      // 行事曆記的是「今年有這件事」。報名截止不代表活動沒發生——普渡法會
+      // 9/06 截止、9/13 舉行，濾掉的話 9/13 那天就只剩神明聖誕。
+      // 反過來說，後台建的每一筆祈福活動都會出現在這裡，包含為了下架而關閉的。
+      setEvents(e.status === 'fulfilled' ? e.value : []);
       // 只有「聖誕」讀失敗才算整頁失敗——那是這一頁的主體，
       // migration 還沒跑時會落在這裡，要讓廟方看得出來而不是以為沒資料
       setFailed(f.status === 'rejected');
@@ -61,12 +62,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     })();
     return () => { alive = false; };
   }, []);
-
-  const deityName = useMemo(() => {
-    const m = new Map<string, string>();
-    deities.forEach(d => m.set(d.id, d.name));
-    return m;
-  }, [deities]);
 
   /** 今年算不出日期的（指定了閏月但該年沒閏）。據實另列，不拿別的月份頂替 */
   const [entries, unresolved] = useMemo(() => {
@@ -79,7 +74,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       list.push({
         key: `f-${f.id}`, date: resolved.date, title: f.title, kind: 'feast',
         ruleLabel: feastRuleLabel(f), adjusted: resolved.adjusted, note: f.note || undefined,
-        deityName: f.deityId ? deityName.get(f.deityId) : undefined,
       });
     });
 
@@ -96,7 +90,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     list.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
     return [list, skipped];
-  }, [feasts, events, year, deityName]);
+  }, [feasts, events, year]);
 
   const byMonth = useMemo(() => {
     const m = new Map<number, CalendarEntry[]>();
@@ -208,7 +202,6 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 {x.ruleLabel}
                                 {x.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
-                                {x.deityName && `　${x.deityName}`}
                               </p>
                               {x.note && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{x.note}</p>}
                             </div>

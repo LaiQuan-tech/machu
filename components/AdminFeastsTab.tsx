@@ -13,12 +13,12 @@
  * 後台已經支援手機（見 index.css 的 .admin-table）。這一頁欄位多且每列都要
  * 顯示兩年的換算結果，硬塞表格在手機上會很擠，直接用卡片列比較實在。
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Eye, EyeOff, RefreshCw, CalendarDays } from 'lucide-react';
 import {
-  getDeityFeasts, createDeityFeast, updateDeityFeast, deleteDeityFeast, getDeities,
+  getDeityFeasts, createDeityFeast, updateDeityFeast, deleteDeityFeast,
 } from '../services/supabase';
-import { DeityFeast, DeityFeastData, DeityRecord, FeastCalendarType } from '../types';
+import { DeityFeast, DeityFeastData, FeastCalendarType } from '../types';
 import {
   LUNAR_MONTH_LABELS_BASE, LUNAR_DAYS, JIEQI_NAMES, resolveFeastDate, feastRuleLabel, weekdayLabel,
   ResolvedFeastDate,
@@ -57,7 +57,6 @@ const TYPE_LABEL: Record<FeastCalendarType, string> = {
 
 const AdminFeastsTab: React.FC = () => {
   const [items, setItems] = useState<DeityFeast[]>([]);
-  const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -66,9 +65,7 @@ const AdminFeastsTab: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [f, d] = await Promise.all([getDeityFeasts(true), getDeities()]);
-      setItems(f);
-      setDeities(d);
+      setItems(await getDeityFeasts(true));
       setError('');
     } catch (e) {
       console.error(e);
@@ -105,10 +102,6 @@ const AdminFeastsTab: React.FC = () => {
     finally { setBusy(false); }
   };
 
-  const deityOptions = useMemo(
-    () => [...deities].sort((a, b) => a.displayOrder - b.displayOrder),
-    [deities],
-  );
   const visibleCount = items.filter(x => x.isVisible).length;
 
   return (
@@ -255,15 +248,6 @@ const AdminFeastsTab: React.FC = () => {
                         </select>
                       </label>
                     )}
-
-                    <label className="block">
-                      <span className="text-xs text-gray-500">對應神尊（選填）</span>
-                      <select value={item.deityId ?? ''} className={inputClass}
-                        onChange={e => patch({ deityId: e.target.value || null })}>
-                        <option value="">不指定</option>
-                        {deityOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
-                    </label>
                   </div>
 
                   <label className="block mt-3">
