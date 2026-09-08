@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AnalyticsSettings } from '../types';
 import { getAnalyticsSettings } from '../services/supabase';
+import { getEntryUtmQuery } from '../services/attribution';
 
 /**
  * 追蹤碼掛載（GA4／Meta 像素／GTM）
@@ -74,55 +75,85 @@ interface AnalyticsProps {
   path: string;
 }
 
+/**
+ * 以下四個狀態刻意放在模組層級，不是元件的 useRef。
+ *
+ * `<Analytics>` 在 App 的四個 return 分支各掛一次（首頁／法會／聖母經／志工），
+ * 而那四個分支的根節點型別不同，React 在切換時會把元件卸載、再掛一個全新的實例。
+ * 狀態若跟著實例走，每切一次分支就會重新注入一次 GTM／GA4 腳本，
+ * 並且把那一次當成「進站第一次瀏覽」、UTM 再送一遍。
+ * 追蹤碼本來就是整個分頁只該有一份的東西，狀態就該跟著分頁而不是跟著元件。
+ */
+let loaded = false;
+let settings: AnalyticsSettings | null = null;
+/** 最後送出的頁面代稱；同一頁不重送，順手擋掉 StrictMode 的雙重掛載 */
+let lastSentPath: string | null = null;
+/** 進站那一次的瀏覽送出去了沒——只有那一次要帶 UTM */
+let entryViewSent = false;
+
+/**
+ * 送一次瀏覽。
+ *
+ * **只有進站第一次帶 UTM**：GA4 的來源歸因是解析 page_location 得來的，
+ * 而這裡送的是硬編的路徑代稱、本來就不含 query string，UTM 因此完全到不了 GA4。
+ * 換頁時再帶就變成同一個來源被重複宣告，報表多出無意義的雜訊。
+ *
+ * 用 getEntryUtmQuery() 而不是當下的 window.location.search，有兩個理由：
+ * 一是設定要等資料庫回來才送得出去，那時使用者可能已經換過頁、網址上的 UTM
+ * 早就被 withKeptParams 拿掉了；二是網址上的其他參數（?share=<uuid>、?admin=1）
+ * 不該進流量報表——share 是一組識別碼，送進去只會製造高基數的雜訊。
+ */
+const sendPageView = (p: string): void => {
+  if (!settings) return;
+  if (p === lastSentPath) return;
+  lastSentPath = p;
+  const query = entryViewSent ? '' : getEntryUtmQuery();
+  entryViewSent = true;
+  const location = window.location.origin + p + query;
+
+  if (isValidGa4(settings.ga4Id) && window.gtag) {
+    window.gtag('event', 'page_view', {
+      page_path: p,
+      page_location: location,
+      page_title: document.title,
+    });
+  }
+  if (isValidPixel(settings.metaPixelId) && window.fbq) window.fbq('track', 'PageView');
+  if (isValidGtm(settings.gtmId) && window.dataLayer) {
+    // 一併給 page_location，容器裡的 GA4 標記才拿得到 UTM
+    window.dataLayer.push({ event: 'spa_page_view', page_path: p, page_location: location });
+  }
+};
+
 const Analytics: React.FC<AnalyticsProps> = ({ path }) => {
-  const loadedRef = useRef(false);
-  const settingsRef = useRef<AnalyticsSettings | null>(null);
-  const firstViewRef = useRef(true);
   // 設定是非同步讀回來的，屆時要送的是「當下的頁面代稱」而不是掛載當時的。
-  // 用 ref 而非 window.location.pathname——法會報名表與聖母經沒有自己的網址，
-  // 直接讀網址會把它們全部記成 "/"，報表就分不出訪客到底看了哪一頁。
+  // 用 ref 而非 window.location.pathname——法會報名表與聖母經雖然各有網址，
+  // 但代稱由 App 統一算好傳進來，直接讀網址會在切換瞬間拿到還沒更新的值。
   const pathRef = useRef(path);
   pathRef.current = path;
 
   useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
-
-    let cancelled = false;
+    // 換分支重新掛載時 loaded 已經是 true：不要再載一次腳本，
+    // 但要補送這一頁的瀏覽（sendPageView 內部會擋掉重複的同一頁）。
+    if (loaded) { sendPageView(pathRef.current); return; }
+    loaded = true;
+    // 刻意不做 cancel：loaded 已經保證整個分頁只跑一次。
+    // 早先這裡有一個 cancelled 旗標，配上 StrictMode 的「掛載→卸載→再掛載」
+    // 會讓開發模式永遠掛不上追蹤碼——第一次掛載啟動 fetch、cleanup 把 cancelled
+    // 設成 true，第二次掛載被 loaded 擋掉直接 return，fetch 回來時已經沒有人採用它。
+    // 正式站沒有 StrictMode 所以看不出來，但本機也就永遠驗不了追蹤碼。
     getAnalyticsSettings().then((s) => {
-      if (cancelled) return;
-      settingsRef.current = s;
+      settings = s;
       if (isValidGtm(s.gtmId)) loadGtm(s.gtmId);
       if (isValidGa4(s.ga4Id)) loadGa4(s.ga4Id);
       if (isValidPixel(s.metaPixelId)) loadMetaPixel(s.metaPixelId);
-      // 設定讀回來時通常已經錯過第一次 path effect，這裡補送首次瀏覽
       sendPageView(pathRef.current);
-      firstViewRef.current = false;
     });
-    return () => { cancelled = true; };
   }, []);
 
-  const sendPageView = (p: string): void => {
-    const s = settingsRef.current;
-    if (!s) return;
-    if (isValidGa4(s.ga4Id) && window.gtag) {
-      window.gtag('event', 'page_view', {
-        page_path: p,
-        page_location: window.location.origin + p,
-        page_title: document.title,
-      });
-    }
-    if (isValidPixel(s.metaPixelId) && window.fbq) window.fbq('track', 'PageView');
-    if (isValidGtm(s.gtmId) && window.dataLayer) {
-      window.dataLayer.push({ event: 'spa_page_view', page_path: p });
-    }
-  };
-
+  // 換頁補送。首次載入時 settings 還沒回來，sendPageView 會直接跳過。
   useEffect(() => {
-    // 首次瀏覽交給上面的載入流程送，這裡只負責之後的換頁
-    if (firstViewRef.current) return;
     sendPageView(path);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
   return null;

@@ -52,6 +52,7 @@ import { renderInline, splitParagraphs } from './components/StoryPage';
 import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
+import { withKeptParams } from './services/attribution';
 import faqContent from './content/faq.json';
 import { useScrollMotion } from './hooks/useScrollMotion';
 
@@ -651,12 +652,14 @@ const App: React.FC = () => {
     setVolunteerPrefill(prefill);
     setShowVolunteer(true);
     window.scrollTo({ top: 0 });
-    if (!isVolunteerUrl()) window.history.pushState({ volunteer: true }, '', VOLUNTEER_PATH);
+    if (!isVolunteerUrl()) window.history.pushState({ volunteer: true }, '', withKeptParams(VOLUNTEER_PATH));
   };
 
   const closeVolunteer = () => {
     setShowVolunteer(false);
-    if (isVolunteerUrl()) window.history.pushState({}, '', '/');
+    // 這裡要連 volunteer 一起拿掉：isVolunteerUrl() 認得 `?volunteer`，
+    // 只換路徑而留著這個參數，等於根本沒關掉。
+    if (isVolunteerUrl()) window.history.pushState({}, '', withKeptParams('/', ['volunteer']));
   };
 
   /**
@@ -675,7 +678,7 @@ const App: React.FC = () => {
    */
   const openScripture = () => {
     if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== SCRIPTURE_PATH) {
-      window.history.pushState({}, '', SCRIPTURE_PATH);
+      window.history.pushState({}, '', withKeptParams(SCRIPTURE_PATH));
     }
     setShowScripture(true);
   };
@@ -692,7 +695,7 @@ const App: React.FC = () => {
    */
   const openFahui = () => {
     if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== FAHUI_PATH) {
-      window.history.pushState({}, '', FAHUI_PATH);
+      window.history.pushState({}, '', withKeptParams(FAHUI_PATH));
     }
     setShowFahui(true);
   };
@@ -1361,7 +1364,9 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     const path = target === 'home' ? '/' : PAGE_PATHS[target];
     if (stripSlash(window.location.pathname) !== stripSlash(path)) {
-      window.history.pushState({ page: target }, '', path);
+      // withKeptParams 會保留 ?share= / ?preview=1 / ?admin=1，只洗掉 utm_*。
+      // 原本推的是純路徑，所以揪團連結進站後點一下導覽，?share= 就消失了。
+      window.history.pushState({ page: target }, '', withKeptParams(path));
     }
   };
 
@@ -1425,7 +1430,10 @@ const App: React.FC = () => {
       setSharedSession(session);
       setIsCreator(true);
       localStorage.setItem(`shared_creator_${session.id}`, 'true');
-      const url = new URL(window.location.href);
+      // 從 withKeptParams 起手而不是 location.href：這個網址會停在網址列上，
+      // 建立者若直接複製網址列轉傳，會把自己的 utm_* 一起傳給親友，
+      // 親友的報名就被算成建立者的來源。（複製鈕給的 sharedSessionUrl 本來就乾淨）
+      const url = new URL(withKeptParams(window.location.pathname), window.location.origin);
       url.searchParams.set('share', session.id);
       window.history.pushState({}, '', url.toString());
       setShowShareModal(true);
