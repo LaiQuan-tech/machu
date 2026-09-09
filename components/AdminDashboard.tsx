@@ -5625,14 +5625,17 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
   // 金額的算法與應收管理那頁一致（ReceivablesTab），不要另立一套：
   // 點燈的金額不在報名紀錄上，要去 lampConfigs 對；祈福是方案費加上加購。
   const { rows, untracked } = useMemo(() => {
+    // 已取消的報名一律不計：它既不是收入，也不算成功的轉換，
+    // 留著會讓「這個管道帶來多少」被灌水。三張表都有「已取消」這個狀態。
     const all: Array<Omit<TrafficRow, 'source'> & { source?: string }> = [
-      ...bookings.map(r => ({ service: '問事', name: r.name, amount: 0, source: r.source, createdAt: r.createdAt })),
-      ...lampRegistrations.map(r => ({
+      ...bookings.filter(r => r.status !== BookingStatus.CANCELLED)
+        .map(r => ({ service: '問事', name: r.name, amount: 0, source: r.source, createdAt: r.createdAt })),
+      ...lampRegistrations.filter(r => r.status !== LampRegistrationStatus.CANCELLED).map(r => ({
         service: '點燈', name: r.name,
         amount: lampConfigs.find(c => c.id === r.serviceId)?.fee || 0,
         source: r.source, createdAt: r.createdAt,
       })),
-      ...blessingRegistrations.map(r => ({
+      ...blessingRegistrations.filter(r => r.status !== BlessingStatus.CANCELLED).map(r => ({
         service: '祈福', name: r.name,
         amount: (r.packageFee || 0) + (r.selectedAddons?.reduce((s, a) => s + a.fee, 0) || 0),
         source: r.source, createdAt: r.createdAt,
@@ -5691,7 +5694,7 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
   const cards = [
     { label: '有來源的筆數', value: totalCount.toLocaleString(), cls: 'text-gray-800' },
     { label: '不同來源', value: groups.length.toLocaleString(), cls: 'text-gray-800' },
-    { label: '帶來金額', value: `NT$${totalAmount.toLocaleString()}`, cls: 'text-temple-red' },
+    { label: '報名金額', value: `NT$${totalAmount.toLocaleString()}`, cls: 'text-temple-red' },
     { label: '未追蹤（追蹤上線前）', value: untracked.toLocaleString(), cls: 'text-gray-400' },
   ];
 
@@ -5705,6 +5708,13 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
           </div>
         ))}
       </div>
+
+      {/* 講清楚金額的口徑。不寫的話「報名金額」很容易被當成「已入帳」，
+          而法會的待匯款、點燈的待處理都還沒收到錢。 */}
+      <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+        金額是報名當下的應付金額（法會含待匯款），實際入帳請看「應收管理」；已取消的報名不計入。
+        問事與志工沒有金額，只計筆數。
+      </p>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden shrink-0">

@@ -163,6 +163,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **統計一律排除 `source` 為空的舊資料**：那是追蹤上線前的，混進來會把每個來源的比例稀釋到看不出差別。但它的筆數要顯示在卡片上（「未追蹤」），否則剛上線時整頁空白會被當成壞掉。
   **空狀態要講「怎麼做才會有數字」**，不要只寫「尚無資料」——廟方看到的第一個畫面就是空的，那一頁得自己把 `?utm_source=…&utm_medium=…&utm_campaign=…` 的用法講完。
   金額的算法與應收管理（`ReceivablesTab`）共用同一套規則：點燈的金額不在報名紀錄上要去 `lampConfigs` 對、祈福是方案費加上加購總和。**不要另立一套**，兩頁對不起來就沒人信。
+  **「已取消」的報名一律不計**（問事／點燈／祈福三張表都有這個狀態）：它既不是收入也不算成功的轉換，算進去等於幫每個管道灌水。
+  **金額是「報名金額」不是「已入帳」**，法會的待匯款也在裡面。頁面上必須寫明這個口徑——不寫的話廟方會拿它當收入看，而實際入帳在「應收管理」那頁。問事與志工沒有金額，只計筆數。
   **新增後台分頁要動五個地方**：`type Tab`、`allNavItems`、`NAV_GROUPS`、`types.ts` 的 `ROLE_ALLOWED_TABS`、以及渲染區塊的 `{tab === '…' && <XxxTab />}`。漏掉 `ROLE_ALLOWED_TABS` 會被 `navItems` 濾掉、選單上完全看不到，而且沒有任何錯誤訊息。
 - **後台分頁的 UI 要怎麼驗（它需要登入，開發時進不去）**：用 Vite 的模組圖把單一 tab 元件掛到一個浮層上測。
   **關鍵陷阱：`await import('react')` 拿到的不是 app 那份 React**（index.html 走 esm.sh，Vite 內部走預打包那份），混用會直接噴 `Invalid hook call`。要 `await import('/node_modules/.vite/deps/react.js')` 與 `.../react-dom_client.js`，才是同一個實例。
