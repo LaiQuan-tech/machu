@@ -23,7 +23,7 @@ import {
   Eye, EyeOff, ShoppingBag, Wrench
 } from 'lucide-react';
 
-type Tab = 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
+type Tab = 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -400,8 +400,11 @@ const inDateRange = (iso: string, from: string, to: string): boolean => {
 };
 
 /** 報名日期區間篩選器（共用 UI） */
+// flex-wrap 是必要的：兩個 date input 加標籤實測要 384px，手機（390px 扣掉頁面
+// 左右內距）只有 348px，不換行會整頁橫向溢出。桌機夠寬時不會觸發，版面不變。
+// 法會與志工兩個分頁也用這支，一起受惠。
 const DateRangeFilter = ({ from, to, onFrom, onTo }: { from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void }) => (
-  <div className="flex items-center gap-1.5 text-sm">
+  <div className="flex flex-wrap items-center gap-1.5 text-sm">
     <span className="text-gray-400 text-xs shrink-0">報名日期</span>
     <input type="date" value={from} onChange={e => onFrom(e.target.value)}
       className="px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
@@ -5569,6 +5572,245 @@ const ReceivablesTab: React.FC<{
 
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
+// ─── 流量來源 Tab ─────────────────────────────────────────────────────────────
+
+/**
+ * 報名來源（UTM）的總表與明細。
+ *
+ * 資料來自各報名表的 `source` 欄（由 services/attribution.ts 的 getSource() 產生），
+ * 格式是「來源/形式/檔期」的扁平字串如 `line/broadcast/pudu2026`；沒有 UTM 就退回
+ * referrer 網域（`google.com`），再沒有就是 `direct`。
+ *
+ * **`undefined` 與 `direct` 是兩件不同的事**：前者代表這筆早於追蹤上線（2026-09-09），
+ * 後者代表有追蹤、但這個人就是沒有來源。統計一律排除前者——把幾百筆舊資料混進來
+ * 會把每個來源的比例稀釋到看不出差別；但它的筆數要顯示在卡片上，否則剛上線時
+ * 整頁空白會讓人以為功能壞了。
+ *
+ * 注意：這裡的 source 與信眾名冊那個「參與管道」（ROSTER_SOURCES）完全無關，
+ * 識別字不要互相沿用。
+ */
+
+const TRAFFIC_SERVICES = ['問事', '點燈', '祈福', '捐獻', '法會', '志工'] as const;
+
+interface TrafficRow {
+  service: string;
+  name: string;
+  amount: number;
+  source: string;
+  createdAt: string;
+}
+
+/** 把扁平字串拆成三段。只有一段的（direct、google.com）就只有平台 */
+const splitSource = (s: string): { platform: string; medium: string; campaign: string } => {
+  const [platform = '', medium = '', campaign = ''] = s.split('/');
+  // 「-」是 getSource() 對「中間那段沒填」的佔位符，不是真的值
+  return { platform, medium: medium === '-' ? '' : medium, campaign: campaign === '-' ? '' : campaign };
+};
+
+const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, fahuiRegistrations, volunteerRegistrations }: {
+  bookings: BookingRecord[];
+  donations: DonationRecord[];
+  lampRegistrations: LampRegistrationRecord[];
+  lampConfigs: LampServiceConfig[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  fahuiRegistrations: FahuiRegistrationRecord[];
+  volunteerRegistrations: VolunteerRegistrationRecord[];
+}) => {
+  const [view, setView] = useState<'summary' | 'detail'>('summary');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+
+  // 金額的算法與應收管理那頁一致（ReceivablesTab），不要另立一套：
+  // 點燈的金額不在報名紀錄上，要去 lampConfigs 對；祈福是方案費加上加購。
+  const { rows, untracked } = useMemo(() => {
+    const all: Array<Omit<TrafficRow, 'source'> & { source?: string }> = [
+      ...bookings.map(r => ({ service: '問事', name: r.name, amount: 0, source: r.source, createdAt: r.createdAt })),
+      ...lampRegistrations.map(r => ({
+        service: '點燈', name: r.name,
+        amount: lampConfigs.find(c => c.id === r.serviceId)?.fee || 0,
+        source: r.source, createdAt: r.createdAt,
+      })),
+      ...blessingRegistrations.map(r => ({
+        service: '祈福', name: r.name,
+        amount: (r.packageFee || 0) + (r.selectedAddons?.reduce((s, a) => s + a.fee, 0) || 0),
+        source: r.source, createdAt: r.createdAt,
+      })),
+      ...donations.map(r => ({ service: '捐獻', name: r.name, amount: Number(r.amount) || 0, source: r.source, createdAt: r.createdAt })),
+      ...fahuiRegistrations.map(r => ({ service: '法會', name: r.name, amount: Number(r.totalAmount) || 0, source: r.source, createdAt: r.createdAt })),
+      ...volunteerRegistrations.map(r => ({ service: '志工', name: r.name, amount: 0, source: r.source, createdAt: r.createdAt })),
+    ];
+    return {
+      rows: all.filter((r): r is TrafficRow => !!r.source)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      untracked: all.filter(r => !r.source).length,
+    };
+  }, [bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, fahuiRegistrations, volunteerRegistrations]);
+
+  const filtered = useMemo(() => rows.filter(r => inDateRange(r.createdAt, dateFrom, dateTo)), [rows, dateFrom, dateTo]);
+
+  const groups = useMemo(() => {
+    const m = new Map<string, { source: string; platform: string; count: number; amount: number; byService: Record<string, number> }>();
+    filtered.forEach(r => {
+      const g = m.get(r.source) || { source: r.source, platform: splitSource(r.source).platform, count: 0, amount: 0, byService: {} };
+      g.count += 1;
+      g.amount += r.amount;
+      g.byService[r.service] = (g.byService[r.service] || 0) + 1;
+      m.set(r.source, g);
+    });
+    return [...m.values()].sort((a, b) => b.count - a.count || b.amount - a.amount);
+  }, [filtered]);
+
+  const totalCount = filtered.length;
+  const totalAmount = useMemo(() => filtered.reduce((s, r) => s + r.amount, 0), [filtered]);
+
+  const detail = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? filtered.filter(r => r.name.toLowerCase().includes(q) || r.source.toLowerCase().includes(q) || r.service.includes(q)) : filtered;
+  }, [filtered, search]);
+  useEffect(() => { setPage(0); }, [search, dateFrom, dateTo, view]);
+  const paged = detail.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const exportSummary = () => {
+    exportExcel('流量來源總表.xlsx', groups.map(g => {
+      const p = splitSource(g.source);
+      return [g.source, p.platform, p.medium, p.campaign, g.count, g.amount,
+        ...TRAFFIC_SERVICES.map(s => g.byService[s] || 0)];
+    }), ['來源', '平台', '形式', '檔期', '筆數', '金額', ...TRAFFIC_SERVICES]);
+  };
+
+  const exportDetail = () => {
+    exportExcel('流量來源明細.xlsx', detail.map(r => {
+      const p = splitSource(r.source);
+      // 平台／形式／檔期各自成欄，Excel 才做得出樞紐分析
+      return [fmtDate(r.createdAt), r.service, r.name, r.amount || '', r.source, p.platform, p.medium, p.campaign];
+    }), ['報名時間', '服務', '姓名', '金額', '來源', '平台', '形式', '檔期']);
+  };
+
+  const cards = [
+    { label: '有來源的筆數', value: totalCount.toLocaleString(), cls: 'text-gray-800' },
+    { label: '不同來源', value: groups.length.toLocaleString(), cls: 'text-gray-800' },
+    { label: '帶來金額', value: `NT$${totalAmount.toLocaleString()}`, cls: 'text-temple-red' },
+    { label: '未追蹤（追蹤上線前）', value: untracked.toLocaleString(), cls: 'text-gray-400' },
+  ];
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {cards.map(c => (
+          <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs text-gray-400 mb-1">{c.label}</p>
+            <p className={`text-2xl font-bold ${c.cls}`}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+          {([['summary', '總表'], ['detail', '明細']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setView(k)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${view === k ? 'bg-temple-red text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <DateRangeFilter from={dateFrom} to={dateTo} onFrom={setDateFrom} onTo={setDateTo} />
+        {view === 'detail' && (
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名、來源或服務"
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+          </div>
+        )}
+        <button onClick={view === 'summary' ? exportSummary : exportDetail}
+          disabled={(view === 'summary' ? groups.length : detail.length) === 0}
+          className="ml-auto shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-temple-red/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          <Download className="w-4 h-4" />
+          匯出{view === 'summary' ? '總表' : '明細'}
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-16 text-center">
+          <p className="text-gray-500 mb-2">還沒有任何帶來源的紀錄</p>
+          <p className="text-sm text-gray-400 leading-relaxed max-w-xl mx-auto">
+            來源是 2026-09-09 才開始記錄的，在那之前的 {untracked.toLocaleString()} 筆算「未追蹤」。<br />
+            對外發連結時在網址後面加上
+            <span className="font-mono text-gray-500">　?utm_source=line&amp;utm_medium=broadcast&amp;utm_campaign=活動代號　</span>
+            信眾從那條連結進來報名，這裡就會出現對應的統計。
+          </p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-gray-400 py-20">尚無符合條件的紀錄</div>
+      ) : view === 'summary' ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="admin-table min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['來源', '平台', '筆數', '佔比', '金額', ...TRAFFIC_SERVICES].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {groups.map(g => (
+                  <tr key={g.source} className="hover:bg-gray-50/60">
+                    <td data-label="來源" className="px-5 py-3">
+                      <span className="text-sm font-mono text-gray-800">{g.source}</span>
+                    </td>
+                    <td data-label="平台" className="px-5 py-3 text-sm text-gray-600">{g.platform}</td>
+                    <td data-label="筆數" className="px-5 py-3 text-sm font-semibold text-gray-800">{g.count}</td>
+                    <td data-label="佔比" className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+                          <div className="h-full bg-temple-gold" style={{ width: `${totalCount ? (g.count / totalCount) * 100 : 0}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-400">{totalCount ? Math.round((g.count / totalCount) * 100) : 0}%</span>
+                      </div>
+                    </td>
+                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{g.amount ? `NT$${g.amount.toLocaleString()}` : '—'}</td>
+                    {TRAFFIC_SERVICES.map(s => (
+                      <td key={s} data-label={s} className="px-5 py-3 text-sm text-gray-500">{g.byService[s] || '—'}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="admin-table min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['報名時間', '服務', '姓名', '金額', '來源'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {paged.map((r, i) => (
+                  <tr key={`${r.createdAt}-${r.name}-${i}`} className="hover:bg-gray-50/60">
+                    <td data-label="報名時間" className="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                    <td data-label="服務" className="px-5 py-3 text-sm text-gray-600">{r.service}</td>
+                    <td data-label="姓名" className="px-5 py-3 text-sm font-medium text-gray-800">{r.name}</td>
+                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{r.amount ? `NT$${r.amount.toLocaleString()}` : '—'}</td>
+                    <td data-label="來源" className="px-5 py-3 text-sm font-mono text-gray-600">{r.source}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Paginator total={detail.length} page={page} onChange={setPage} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [tab, setTab] = useState<Tab>(role === 'finance' ? 'receivables' : 'overview');
   /** 手機側邊欄抽屜。桌機（lg 以上）常駐，這個狀態不影響桌機。 */
@@ -5662,6 +5904,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-4 h-4" /> },
     { key: 'donations',    label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'receivables', label: '應收管理',   icon: <Banknote className="w-4 h-4" /> },
+    { key: 'traffic',     label: '流量來源',   icon: <TrendingUp className="w-4 h-4" /> },
     { key: 'about',       label: '關於我們',   icon: <FileText className="w-4 h-4" /> },
     { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
@@ -5701,7 +5944,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
    */
   const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
     { title: '常用',       keys: ['overview', 'fahui', 'volunteer', 'bookings', 'lamps', 'blessings', 'donations'] },
-    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'repairs'] },
+    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'repairs', 'traffic'] },
     { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'photos', 'scripture'] },
     { title: '系統設定',   keys: ['siteinfo', 'analytics', 'social'] },
   ];
@@ -5863,6 +6106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
+              {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
               {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} donations={donations} memberProfiles={memberProfiles} />}
             </>
           )}
