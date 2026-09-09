@@ -15,6 +15,7 @@ import { AboutSection } from '../types';
  */
 
 /** 資料庫抓不到時的保底內容，與 about_sections.sql 帶入的初始資料一致 */
+/** 資料庫真的沒有段落時才用的保底文案（含照片） */
 const FALLBACK_BLOCKS: StoryBlock[] = [
   {
     heading: '心中有善不畏苦；家有溫暖路有光。',
@@ -25,6 +26,9 @@ const FALLBACK_BLOCKS: StoryBlock[] = [
     imageAlt: '和聖壇壇內一景',
   },
 ];
+
+/** 還在讀資料庫時顯示的版本：文案相同但不帶照片，見下方 return 的說明 */
+const LOADING_BLOCKS: StoryBlock[] = FALLBACK_BLOCKS.map(({ image, imageAlt, ...rest }) => rest);
 
 /** 把資料庫的一列轉成版型要的段落；照片存的是 storage 路徑，這裡才轉成公開網址 */
 export const toStoryBlock = (s: AboutSection): StoryBlock => ({
@@ -47,7 +51,9 @@ const AboutPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, []);
 
   // blocks 尚未載入時先給保底，避免標題閃一下才出現內容
-  return <StoryPage eyebrow="關於和聖壇" title="關於我們" blocks={blocks ?? FALLBACK_BLOCKS} onBack={onBack} />;
+  // 載入中用「無圖版」的保底：有圖的話會立刻下載 419KB，而資料庫幾乎一定有值、
+  // 回來就把它換掉，等於白載（同樣的坑在 App.tsx 的 aboutImageUrl 也修過）。
+  return <StoryPage eyebrow="關於和聖壇" title="關於我們" blocks={blocks ?? LOADING_BLOCKS} onBack={onBack} />;
 };
 
 export default AboutPage;

@@ -309,6 +309,17 @@ const DEITY_PAGE = 4;
 const FAHUI_LANDING = true;
 
 /**
+ * 法會是否還在收件。控制**站上邀請報名的入口**——首頁 Hero 的行動按鈕、
+ * 祈福活動頁的橫幅按鈕。與 FAHUI_LANDING 是兩回事：那個管的是「根路徑要不要
+ * 顯示報名表」，這個管的是「要不要主動邀人來報名」。
+ *
+ * 2026-09-10 關閉：普渡報名 9/06 截止、法會 9/13 舉行。截止後仍留著按鈕，
+ * 信眾點下去只會看到「本次法會報名已截止」——邀請一個必然落空的點擊，
+ * 比沒有按鈕更糟。橫幅本身保留，法會還沒辦，日期資訊對信眾仍然有用。
+ */
+const FAHUI_SIGNUP_OPEN = false;
+
+/**
  * 正式官網的網域。**在這些網域上，根路徑一律顯示官網首頁，不會被報名表蓋掉。**
  *
  * 為什麼要分兩邊：早期的法會宣傳連結發的是 machu-five.vercel.app（Vercel 預設網域），
@@ -447,6 +458,9 @@ const HERO = (() => {
   return v && v in HERO_VARIANTS ? HERO_VARIANTS[v as keyof typeof HERO_VARIANTS] : HERO_VARIANTS[DEFAULT_HERO];
 })();
 
+/** 後台沒設定「關於我們」照片時的保底圖 */
+const ABOUT_IMAGE_FALLBACK = '/picture/Introduction 1.jpg';
+
 const heroSrc = (file: string): string => {
   const v = __HERO_V__?.[file];
   return v ? `/${file}?v=${v}` : `/${file}`;
@@ -455,20 +469,20 @@ const heroSrc = (file: string): string => {
 const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
   // 左前：濟公活佛。臉最低，疊在三媽之前
   { src: heroSrc('hero-jigong.webp'), fallback: heroSrc('hero-jigong.png'), name: '濟公活佛',
-    size: 'h-[min(74vw,39.14vh)] max-w-[72vw] sm:h-[min(57vh,62.7vw)] sm:max-w-none',
-    drop: 'mb-[calc(min(8vw,4.23vh)*-1)] sm:mb-[calc(min(6vh,6.6vw)*-1)]', layer: 'z-[2]' },
+    size: 'h-[min(74vw,39.14vh)] max-w-[72vw] land:h-[min(57vh,62.7vw)] land:max-w-none',
+    drop: 'mb-[calc(min(8vw,4.23vh)*-1)] land:mb-[calc(min(6vh,6.6vw)*-1)]', layer: 'z-[2]' },
   // 中後：天上聖母三媽，本壇主神。最高最大，但**疊在最底層**——廟方要的構圖是
   // 「二媽與濟公在三媽面前」，她的身體被前面兩尊擋住，只露出頭與冠帽。
   // 優先權與 index.html 的 preload 都給她（兩邊不一致等於預載了不是主角的那張）
   { src: heroSrc('hero-sanma.webp'), fallback: heroSrc('hero-sanma.png'), name: '天上聖母三媽',
-    size: 'h-[min(128vw,67.70vh)] max-w-[88vw] sm:h-[min(98vh,107.8vw)] sm:max-w-none',
-    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
-    gap: 'ml-[calc(min(24vw,12.69vh)*-1)] sm:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
+    size: 'h-[min(128vw,67.70vh)] max-w-[88vw] land:h-[min(98vh,107.8vw)] land:max-w-none',
+    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] land:mb-[calc(min(12vh,13.2vw)*-1)]',
+    gap: 'ml-[calc(min(24vw,12.69vh)*-1)] land:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
   // 右前：天上聖母二媽（黃袍金冠）。臉與濟公大致齊高，兩尊一起框住後面的主神
   { src: heroSrc('hero-erma.webp'), fallback: heroSrc('hero-erma.png'), name: '天上聖母二媽',
-    size: 'h-[min(99vw,52.36vh)] max-w-[76vw] sm:h-[min(76vh,83.6vw)] sm:max-w-none',
-    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] sm:mb-[calc(min(12vh,13.2vw)*-1)]',
-    gap: 'ml-[calc(min(31vw,16.40vh)*-1)] sm:ml-[calc(min(24vh,26.4vw)*-1)]', layer: 'z-[3]' },
+    size: 'h-[min(99vw,52.36vh)] max-w-[76vw] land:h-[min(76vh,83.6vw)] land:max-w-none',
+    drop: 'mb-[calc(min(15vw,7.93vh)*-1)] land:mb-[calc(min(12vh,13.2vw)*-1)]',
+    gap: 'ml-[calc(min(31vw,16.40vh)*-1)] land:ml-[calc(min(24vh,26.4vw)*-1)]', layer: 'z-[3]' },
 ];
 
 // 志工報名有自己的網址 /volunteer：可單獨分享，瀏覽器上一頁也能正確返回。
@@ -727,7 +741,13 @@ const App: React.FC = () => {
   const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
   const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
+  /**
+   * 「關於我們」照片。**初始值刻意留空**：填 '/picture/Introduction 1.jpg' 的話，
+   * React 第一次就把它畫出來、瀏覽器立刻下載 419KB，接著資料庫的值回來又換掉 src——
+   * 那張圖從來不會出現在畫面上，卻每次進首頁都下載一次（實測 2026-09-10）。
+   * 空字串時改畫同尺寸的佔位塊，版面不會跳動。
+   */
+  const [aboutImageUrl, setAboutImageUrl] = useState('');
   // 首頁摘要取後台第一個顯示中的段落；還沒載入或沒資料時用下面寫死的保底文案
   const [aboutLead, setAboutLead] = useState<AboutSection | null>(null);
   // 首頁遷址捐款區塊＝後台「遷址捐款」第一個顯示中的段落
@@ -915,10 +935,10 @@ const App: React.FC = () => {
         setRepairProjectTotals(totals);
       }).catch(console.error);
     getSiteImages().then(images => {
-      for (const img of images) {
-        if (img.sectionKey === 'about') setAboutImageUrl(getSiteImagePublicUrl(img.storagePath));
-      }
-    }).catch(console.error);
+      const about = images.find(img => img.sectionKey === 'about');
+      // 後台沒設定或讀取失敗才退回本地保底圖，不要一開始就先載一張準備被換掉的
+      setAboutImageUrl(about ? getSiteImagePublicUrl(about.storagePath) : ABOUT_IMAGE_FALLBACK);
+    }).catch(e => { console.error(e); setAboutImageUrl(ABOUT_IMAGE_FALLBACK); });
     // 首頁「關於我們」摘要＝後台第一個顯示中的段落，與 /about 同一份資料，改一次兩邊同步
     getAboutSections().then(rows => setAboutLead(rows[0] ?? null))
       .catch(e => console.warn('讀取關於我們段落失敗，首頁改用保底文案:', e));
@@ -1896,27 +1916,35 @@ const App: React.FC = () => {
         {/* Hero 前景：行動按鈕與三尊神明放在同一個 flex 容器裡，讓瀏覽器自己算避讓。
             神明的寬度是由 vh 高度推出來的，用 vw 寫死按鈕位置在平板尺寸會夾在
             兩者之間、兩邊都撞到；交給 flex 就不必猜。
-            手機（直排）：神明在上、按鈕在下，兩者都水平置中。
+            **切換用 `land:` 而不是 `sm:`**（＝寬度 ≥640px 且視窗是橫的，定義見
+            tailwind.config.cjs）。用寬度切會讓所有 iPad 直立的按鈕被推出畫面左緣：
+            神明欄寬度由 min(98vh, 107.8vw) 推出，直立時算出來比視窗還寬，而它是
+            shrink-0、按鈕欄是 flex-1。實測 820×1180 被裁 144px（按鈕全寬 223px）。
+            直排（含所有直立平板）：神明在上、按鈕在下，兩者都水平置中。
                           直排時 items-* 控制的是水平對齊，所以置中要寫 items-center。
-            桌機（橫排）：神明佔右側自然寬度，按鈕落在左側、與宮壇名同一條左邊界（pl-10 對齊
+            橫排：神明佔右側自然寬度，按鈕落在左側、與宮壇名同一條左邊界（pl-10 對齊
                           標題的 left-10），形成「左上宮壇名 → 左下按鈕 → 右側神明」的三角。
                           橫排時 items-* 變成垂直對齊，改回 items-end 讓神明貼齊底部。
                           LINE 浮動鈕在 Hero 期間收起，所以按鈕可以直接沉到底部，不必再上抬。 */}
-        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-end items-center sm:flex-row sm:items-end">
+        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-end items-center land:flex-row land:items-end">
           {/* 直排原本是為了讓「傾斜提示」疊在報名鈕正上方。那顆提示鈕已移除
               （陀螺儀效果 2026-09-02 下架），版面保持不變：只有一個子元素時
               flex-col 的呈現與原本相同，之後要再加東西也還有位置。 */}
-          <div className="hero-actions order-2 sm:order-none w-full sm:w-auto sm:flex-1 flex flex-col items-center gap-3 sm:items-start pb-8 sm:pb-0 sm:pl-10 sm:mb-16">
-            <button
-              onClick={openFahui}
-              // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。
-              // 先前的金底按鈕與 Hero 的金色織錦同色系，等於埋進背景。
-              className="hero-primary btn-sutra pointer-events-auto px-10 py-4 font-bold transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg tracking-wider whitespace-nowrap"
-            >
-              <ClipboardList className="w-5 h-5" />
-              報名普渡法會
-            </button>
-          </div>
+          {/* 收件結束時整欄不渲染，而不是渲染一個空的 div——空的 div 仍然吃掉
+              sm:flex-1 的那一半寬度，神明會被擠到只剩右半邊。 */}
+          {FAHUI_SIGNUP_OPEN && (
+            <div className="hero-actions order-2 land:order-none w-full land:w-auto land:flex-1 flex flex-col items-center gap-3 land:items-start pb-8 land:pb-0 land:pl-10 land:mb-16">
+              <button
+                onClick={openFahui}
+                // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。
+                // 先前的金底按鈕與 Hero 的金色織錦同色系，等於埋進背景。
+                className="hero-primary btn-sutra pointer-events-auto px-10 py-4 font-bold transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg tracking-wider whitespace-nowrap"
+              >
+                <ClipboardList className="w-5 h-5" />
+                報名普渡法會
+              </button>
+            </div>
+          )}
 
           {/* 三尊神明：彼此底部對齊，像同壇並列。陣列順序＝畫面由左到右。
               手機用 order-1 排到按鈕上方；桌機回到 DOM 順序，落在按鈕右側。
@@ -1927,7 +1955,7 @@ const App: React.FC = () => {
                桌機沉出去的部分由 Hero 的 overflow-hidden 裁掉；
                手機的神明上方還有按鈕在下面，所以這一層自己 overflow-hidden＋固定高度，
                否則沉下去的部分會壓到報名鈕。 */
-            <div className="hero-deity-stage order-1 sm:order-none shrink-0 w-full h-[121vw] max-h-[64vh] overflow-hidden sm:w-auto sm:h-auto sm:max-h-none sm:overflow-visible flex items-end justify-center sm:justify-start sm:pr-6 mb-4 sm:mb-0">
+            <div className="hero-deity-stage order-1 land:order-none shrink-0 w-full h-[121vw] max-h-[64vh] overflow-hidden land:w-auto land:h-auto land:max-h-none land:overflow-visible flex items-end justify-center land:justify-start land:pr-6 mb-4 land:mb-0">
               <div className="hero-aura" aria-hidden="true" />
               {HERO_DEITIES.slice(0, 3).map((d, i) => (
                 // 以「高」為主、「寬」只是防呆上限：神像是直式，高度決定氣勢。
@@ -2113,12 +2141,17 @@ const App: React.FC = () => {
               <div className="sr-figure">
                 <div className="relative">
                   <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
-                  <img
-                    src={aboutImageUrl}
-                    alt="和聖壇介紹"
-                    className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                  {aboutImageUrl ? (
+                    <img
+                      src={aboutImageUrl}
+                      alt="和聖壇介紹"
+                      className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    // 同尺寸佔位：還沒決定要載哪一張時先撐住高度，避免版面跳動
+                    <div className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] bg-temple-gold/10" aria-hidden="true" />
+                  )}
                 </div>
               </div>
             </div>
@@ -2923,12 +2956,20 @@ const App: React.FC = () => {
                 <p className="text-amber-200 text-sm">國曆 9/13（日）｜截止報名：9/06</p>
                 <p className="text-amber-300 text-xs mt-1">超渡祖先・解冤親債・贊普・地基主等 7 種項目</p>
               </div>
-              <button
-                onClick={openFahui}
-                className="w-full sm:w-auto shrink-0 px-7 py-3.5 bg-white text-amber-800 font-bold rounded-xl hover:bg-amber-50 active:scale-95 transition-all shadow-md text-sm"
-              >
-                立即線上報名 →
-              </button>
+              {/* 收件結束後不留按鈕：點下去只會看到「本次法會報名已截止」。
+                  改成一行狀態文字，橫幅本身保留——法會還沒辦，日期對信眾仍然有用。 */}
+              {FAHUI_SIGNUP_OPEN ? (
+                <button
+                  onClick={openFahui}
+                  className="w-full sm:w-auto shrink-0 px-7 py-3.5 bg-white text-amber-800 font-bold rounded-xl hover:bg-amber-50 active:scale-95 transition-all shadow-md text-sm"
+                >
+                  立即線上報名 →
+                </button>
+              ) : (
+                <p className="w-full sm:w-auto shrink-0 px-7 py-3.5 rounded-xl bg-white/10 border border-white/25 text-amber-100 text-sm text-center">
+                  線上報名已截止
+                </p>
+              )}
             </div>
           </div>
 

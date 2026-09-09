@@ -412,13 +412,17 @@ export const uploadSiteImage = async (
   section: SiteImageSection,
   file: File
 ): Promise<string> => {
-  const ext = file.name.split('.').pop() || 'jpg';
+  // 先縮圖（見 shrinkImage）。這裡漏掉過：廟方 2026-08 上傳的「關於我們」照片是
+  // 手機直出的 IMG_7606.jpeg，4843KB／3024px 寬，而前台只顯示 358px——
+  // 一張圖就佔首頁流量的一半以上。
+  const blob = await shrinkImage(file);
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const storagePath = `${section}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(SITE_IMAGES_BUCKET)
-    .upload(storagePath, file, {
-      contentType: file.type,
+    .upload(storagePath, blob, {
+      contentType: blob.type,
       cacheControl: '3600',
       upsert: false,
     });
@@ -619,12 +623,13 @@ export const getHeroSlides = async (): Promise<HeroSlideRecord[]> => {
 };
 
 export const uploadHeroSlide = async (file: File): Promise<HeroSlideRecord> => {
-  const ext = file.name.split('.').pop() || 'jpg';
+  const blob = await shrinkImage(file);   // 見 shrinkImage
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const storagePath = `hero-slides/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(SITE_IMAGES_BUCKET)
-    .upload(storagePath, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+    .upload(storagePath, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
 
   if (uploadError) throw uploadError;
 
@@ -707,13 +712,14 @@ export const updateScriptureVerse = async (id: string, data: Partial<ScriptureVe
 };
 
 export const uploadScriptureImage = async (file: File): Promise<string> => {
-  const ext = file.name.split('.').pop() || 'jpg';
+  const blob = await shrinkImage(file);   // 見 shrinkImage
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const storagePath = `scripture/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
     .from(SITE_IMAGES_BUCKET)
-    .upload(storagePath, file, {
-      contentType: file.type,
+    .upload(storagePath, blob, {
+      contentType: blob.type,
       cacheControl: '3600',
       upsert: false,
     });
@@ -1122,18 +1128,20 @@ export const getProfile = async (): Promise<ProfileData | null> => {
 // ─── Image Upload Helpers ────────────────────────────────────────────────────
 
 export const uploadBlessingImage = async (file: File): Promise<string> => {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const blob = await shrinkImage(file);   // 見 shrinkImage
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const path = `blessings/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
   if (error) { console.error(error); throw error; }
   const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 };
 
 export const uploadLampImage = async (file: File): Promise<string> => {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const blob = await shrinkImage(file);   // 見 shrinkImage
+  const ext = blob.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
   const path = `lamps/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '3600', upsert: false });
   if (error) { console.error(error); throw error; }
   const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
