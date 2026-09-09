@@ -173,6 +173,8 @@ interface RegViewItem {
   serviceLabel?: string;
   createdAt: string;
   contactLabel?: string;
+  /** 報名來源（UTM）。與名冊那個「參與管道」的 source 不是同一件事 */
+  source?: string;
 }
 
 const MemberInfoModal = ({
@@ -268,6 +270,13 @@ const MemberInfoModal = ({
                 <span className="text-xs text-gray-400 w-14 shrink-0">登記時間</span>
                 <span className="text-xs text-gray-400">{fmtDate(reg.createdAt)}</span>
               </div>
+              {reg.source && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0">報名來源</span>
+                  {/* 等寬字：這是機器產生的字串，斜線分段用等寬才看得清楚 */}
+                  <span className="text-xs text-gray-400 font-mono">{reg.source}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1119,12 +1128,13 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
             entry.donor || entry.penitent || '', entry.object || [entry.petType, entry.petName].filter(Boolean).join('／') || '',
             entry.units || '', entry.position || '', entry.address || '', bd.solar, bd.lunar, entry.zodiac || '',
             fahuiEntryAmount(meta, entry), r.status === 'paid' ? '已收款' : '待匯款', fmtDate(r.createdAt),
+            r.source || '',
           ]);
         });
       });
     });
     exportExcel('法會報名明細.xlsx', rows,
-      ['報名人', '電話', 'LINE', '項目', '序', '陽上姓名/捐贈人', '超薦對象/寵物（類別與名）', '單位數', '牌位地址', '地址', '出生日期(國曆)', '出生日期(農曆)', '生肖', '金額', '狀態', '報名時間']);
+      ['報名人', '電話', 'LINE', '項目', '序', '陽上姓名/捐贈人', '超薦對象/寵物（類別與名）', '單位數', '牌位地址', '地址', '出生日期(國曆)', '出生日期(農曆)', '生肖', '金額', '狀態', '報名時間', '報名來源']);
   };
 
   /** 匯出：依範本產生的多分頁活頁簿（每個項目一頁 ＋ 平安餐 ＋ 收入計算表） */
@@ -1194,9 +1204,9 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
         cbd.solar, cbd.lunar, r.contactZodiac || '',
         countEntries(r), r.mealSponsor || 0, r.totalAmount,
         r.accountLast5 || '', r.zanpuOffering || '', r.notes || '',
-        r.status === 'paid' ? '已收款' : '待匯款', fmtDate(r.createdAt),
+        r.status === 'paid' ? '已收款' : '待匯款', fmtDate(r.createdAt), r.source || '',
       ];
-    }), ['報名人', '電話', 'LINE', '電子郵件', '地址', '聯絡人生日(國曆)', '聯絡人生日(農曆)', '聯絡人生肖', '項目數', '平安餐贊助', '應匯金額', '帳號後五碼', '贊普供品', '留言', '狀態', '報名時間']);
+    }), ['報名人', '電話', 'LINE', '電子郵件', '地址', '聯絡人生日(國曆)', '聯絡人生日(農曆)', '聯絡人生肖', '項目數', '平安餐贊助', '應匯金額', '帳號後五碼', '贊普供品', '留言', '狀態', '報名時間', '報名來源']);
   };
 
   return (
@@ -1309,6 +1319,7 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                       <p className="text-xs text-gray-500">
                         聯絡地址：{r.address}
                         {r.contactGender && <span className="ml-2 text-gray-400">性別：{r.contactGender}</span>}
+                        {r.source && <span className="ml-2 text-gray-400">來源：<span className="font-mono">{r.source}</span></span>}
                       </p>
                       <button
                         onClick={() => setEditingId(editingId === r.id ? null : r.id)}
@@ -1414,9 +1425,9 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
       return [
         r.name, r.phone, r.address, r.diet || '', bd.solar, bd.lunar, r.zodiac || '', r.lineId || '',
         fmtAvailability(r.availability), r.availabilityNote || '',
-        r.status === 'contacted' ? '已聯絡' : '待聯絡', fmtDate(r.createdAt),
+        r.status === 'contacted' ? '已聯絡' : '待聯絡', fmtDate(r.createdAt), r.source || '',
       ];
-    }), ['姓名', '電話', '通訊地址', '用餐習慣', '生日(國曆)', '生日(農曆)', '生肖', 'LINE', '可出勤時段', '其他時段說明', '狀態', '報名時間']);
+    }), ['姓名', '電話', '通訊地址', '用餐習慣', '生日(國曆)', '生日(農曆)', '生肖', 'LINE', '可出勤時段', '其他時段說明', '狀態', '報名時間', '報名來源']);
   };
 
   return (
@@ -1483,6 +1494,7 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
                   <p className="text-xs text-gray-400 mt-0.5">其他：{r.availabilityNote}</p>
                 )}
                 <p className="text-[11px] text-gray-300 mt-0.5">{fmtDate(r.createdAt)}</p>
+                {r.source && <p className="text-[11px] text-gray-300 font-mono">{r.source}</p>}
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${
                 r.status === 'contacted' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -1802,8 +1814,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
     exportExcel('預約資料.xlsx', filtered.map(b => [
       b.name, b.phone, b.gender || '', b.birthDate, b.zodiac || '', b.address || '', b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
-      b.type, b.status || '', b.notes || '', fmtDate(b.createdAt)
-    ]), ['姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
+      b.type, b.status || '', b.notes || '', fmtDate(b.createdAt), b.source || ''
+    ]), ['姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間', '報名來源']);
   };
 
   const types = [...new Set(bookings.map(b => b.type))];
@@ -1958,7 +1970,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                 {paged.map(b => (
                   <tr key={b.id}
                     className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel })}
+                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -2082,8 +2094,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
 
   const handleExport = () => {
     exportExcel('捐款資料.xlsx', filtered.map(d => [
-      d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.repairProjectName || '', d.notes || '', fmtDate(d.createdAt)
-    ]), ['姓名', '電話', '性別', '現居地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間']);
+      d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.repairProjectName || '', d.notes || '', fmtDate(d.createdAt), d.source || ''
+    ]), ['姓名', '電話', '性別', '現居地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間', '報名來源']);
   };
 
   return (
@@ -2145,7 +2157,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                 {paged.map(d => (
                   <tr key={d.id}
                     className="hover:bg-green-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel })}
+                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -4165,8 +4177,8 @@ const LampsTab = ({
   const exportRegsExcel = () => {
     exportExcel('點燈登記.xlsx', filteredRegs.map(r => [
       getServiceName(r.serviceId), r.name, r.phone, r.gender || '', r.birthDate, r.zodiac || '', r.address || '',
-      r.status, r.notes || '', fmtDate(r.createdAt)
-    ]), ['服務項目', '姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間']);
+      r.status, r.notes || '', fmtDate(r.createdAt), r.source || ''
+    ]), ['服務項目', '姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間', '報名來源']);
   };
 
   const lampStatusBadge = (status: LampRegistrationStatus) => {
@@ -4347,7 +4359,7 @@ const LampsTab = ({
             {pagedRegs.map(r => (
               <div key={r.id}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
-                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel })}
+                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source })}
               >
                 <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
                   <Flame className="w-5 h-5 text-orange-500" />
@@ -4633,9 +4645,9 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
         r.name, r.phone, r.packageName || '', r.packageFee ?? '',
         (r.selectedAddons || []).map(a => `${a.name}(NT$${a.fee})`).join(' / '),
         (r.selectedAddons || []).reduce((s, a) => s + a.fee, 0) || '',
-        r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)
+        r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt), r.source || ''
       ]),
-      ['姓名', '電話', '方案', '費用', '加購項目', '加購小計', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
+      ['姓名', '電話', '方案', '費用', '加購項目', '加購小計', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間', '報名來源']
     );
   };
 
@@ -4705,7 +4717,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   {filteredRegs.map(r => (
                     <tr key={r.id}
                       className="hover:bg-purple-50/40 transition-colors cursor-pointer"
-                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt })}
+                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source })}
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>

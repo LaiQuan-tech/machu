@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
 import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getSource } from './attribution';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -24,6 +25,7 @@ export const submitBooking = async (data: BookingData): Promise<boolean> => {
     type: data.type,
     notes: data.notes || null,
     status: BookingStatus.PENDING,
+    source: getSource(),
   }]);
 
   if (error) {
@@ -61,6 +63,7 @@ export const getBookings = async (): Promise<BookingRecord[]> => {
     status: row.status as BookingStatus,
     divineMessage: row.divine_message || undefined,
     createdAt: row.created_at,
+    source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
   }));
 };
 
@@ -161,6 +164,7 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     notes: data.notes || null,
     repair_project_id:   data.repairProjectId   || null,
     repair_project_name: data.repairProjectName || null,
+    source: getSource(),
   }]);
 
   if (error) {
@@ -194,6 +198,7 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     repairProjectId:   row.repair_project_id   || undefined,
     repairProjectName: row.repair_project_name || undefined,
     createdAt: row.created_at,
+    source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
   }));
 };
 
@@ -822,6 +827,7 @@ export const submitLampRegistration = async (data: LampRegistrationData): Promis
     contact_label: data.contactLabel || null,
     notes: data.notes || null,
     status: LampRegistrationStatus.PENDING,
+    source: getSource(),
   }]);
 
   if (error) {
@@ -855,6 +861,7 @@ export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> 
     notes: row.notes,
     status: row.status as LampRegistrationStatus,
     createdAt: row.created_at,
+    source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
   }));
 };
 
@@ -1169,6 +1176,7 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   claimedOfferings: Array.isArray(row.claimed_offerings) ? (row.claimed_offerings as ClaimedOffering[]) : [],
   status: (row.status as BlessingStatus) || BlessingStatus.PENDING,
   createdAt: row.created_at,
+  source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
 });
 
 export const getBlessingEvents = async (activeOnly = false): Promise<BlessingEventRecord[]> => {
@@ -1266,6 +1274,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData): P
     package_fee:       d.packageFee        ?? null,
     selected_addons:   d.selectedAddons    || [],
     claimed_offerings: d.claimedOfferings  || [],
+    source: getSource(),
   });
   if (error) { console.error(error); throw error; }
   return true;
@@ -1688,6 +1697,7 @@ export const submitFahuiRegistration = async (data: FahuiRegistrationData): Prom
       meal_sponsor: data.mealSponsor || 0,
       notes: data.notes || null,
       total_amount: data.total,
+      source: getSource(),
     }]);
 
   if (error) {
@@ -1710,6 +1720,7 @@ export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]
   return (data || []).map((row) => ({
     id: row.id,
     createdAt: row.created_at,
+    source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     name: row.name,
     phone: row.phone,
     address: row.address,
@@ -1815,6 +1826,7 @@ export const submitVolunteerRegistration = async (data: VolunteerRegistrationDat
       line_id: data.lineId || null,
       availability: data.availability && Object.keys(data.availability).length ? data.availability : null,
       availability_note: data.availabilityNote || null,
+      source: getSource(),
     }]);
   if (error) { console.error('Error submitting volunteer registration:', error); throw error; }
 };
@@ -1828,6 +1840,7 @@ export const getVolunteerRegistrations = async (): Promise<VolunteerRegistration
   return (data || []).map((row) => ({
     id: row.id,
     createdAt: row.created_at,
+    source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     name: row.name,
     phone: row.phone,
     address: row.address,

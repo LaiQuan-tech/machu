@@ -151,6 +151,16 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   3. **`closeVolunteer` 必須額外拿掉 `volunteer`**：`isVolunteerUrl()` 認得 `?volunteer`，只換路徑而留著這個參數等於沒關掉。
   4. **進站那一頁刻意不清網址列上的 UTM**。GA4／GTM 初始化時會讀真實的 `document.location`，一載入就清掉的話，日後廟方把 GA4 掛進 GTM 容器（而不是後台那個欄位）歸因就整個失效。UTM 是在**第一次站內換頁**時才從網址上拿掉的。
   **只有進站第一次的 page_view 帶 UTM**，換頁不帶——同一個來源重複宣告只會在報表製造雜訊。也刻意不把 `?share=<uuid>`／`?admin=1` 送進 `page_location`：那是識別碼不是流量維度，送進去只會製造高基數的雜訊。
+- **報名來源存在六張轉換表的 `source` 欄**（2026-09-09，migration：`supabase/migrations/utm_source_column.sql`）：bookings／donations／lamp_registrations／blessing_registrations／fahui_registrations／volunteer_registrations。值由 `getSource()` 產生，格式 `line/broadcast/pudu2026`；沒有 UTM 就退回 referrer 網域（`google.com`），再沒有就是 `direct`。
+  **為什麼要存自己這一份而不是只看 GA4**：GA4 只說得出「300 人從 IG 來」，廟方要的是「這 12 筆點燈是抖音那支影片帶來的」。而且 **LINE 的內建瀏覽器不送 referrer**，GA4 會把 LINE 來的人全算成「直接流量」——只有這一欄看得到 LINE 群發到底有沒有效。
+  **`NULL` 與 `'direct'` 是兩件事**：NULL＝這筆早於追蹤上線（2026-09-09 以前），`direct`＝有追蹤但這個人沒有來源。所以那欄刻意不給 DEFAULT，給了就再也分不出來。
+  **那一欄刻意不加 CHECK constraint**：這是報名的送出路徑，CHECK 一旦擋下來整筆報名就失敗——追蹤欄位絕對不可以把轉換擋掉。長度與字元由 `cleanSource()`（attribution.ts）負責，同時處理了 Excel 公式注入（`=cmd|…` 開頭的值會被清成安全字串）。
+  注入點集中在 `services/supabase.ts` 的 6 個 insert，UI 完全沒動。讀取端 6 支 getter 都是逐欄 map，各補一行；blessing 走共用的 `mapBlessingReg`，改一處兩支 getter 一起受惠。
+- **後台看得到來源的地方**：問事／捐獻／點燈／祈福四類共用 `MemberInfoModal`（點整列展開），來源顯示在「登記時間」下面；法會在展開區的聯絡資料那一行；志工在卡片右下角。
+  **匯出有七支加了「報名來源」**：法會明細、法會總表、志工、預約、捐款、點燈、祈福。
+  **三支刻意沒加**：`信眾名冊`（跨表聚合，而且它已經有一個叫「參與管道」的欄，成本高又容易混淆）、`法會報名完整表`（35 欄固定索引的列印用表格，動欄位會擾亂既有版面）、`法會多分頁活頁簿`（8 個項目分頁各自欄序不同，而來源是「報名層級」的值，每個牌位重複一次只是雜訊）。法會本身已有兩支匯出帶來源，不缺這一份。
+- **`source` 這個名字在本專案有兩個意思，不要弄混**：`services/devoteeRoster.ts` 的 `DevoteeSource` 是「參與管道」（法會報名／志工／問事／捐款／點燈），在信眾名冊那一頁篩選與匯出用；本節講的 `source` 是 UTM 流量來源。UI 文案一律寫「報名來源」與「參與管道」區隔，不要只寫「來源」。
+
 - **規劃全文與 UTM 命名對照表在 `docs/utm-plan.md`**，包含廟方要照抄的 source／medium／campaign 固定值。三條鐵律：站內連結絕對不加 UTM（會被判成新的來訪、蓋掉原本的歸因）、值一律小寫英數、一個檔期固定一組值不要手打。
 
 ## SEO 與 AI 檢索（2026-08-10 建置）
@@ -221,7 +231,6 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   沒有任何連結指過去、不在 sitemap、query string 不會產生新的可索引網址，所以不影響 SEO。
   **要換過去的話，連帶要處理三件事**：`index.html` 的 preload 指向的是金箔牆；`og-hero.jpg` 是用金箔底反推暗化比例算出來的（見 `build-og-hero.js`），換底圖等於整支腳本的背景邏輯要重寫、三尊座標也要重量；還有全站配色是廟紅＋金，往下捲一屏就回到紅金，首屏藍金會像兩個網站。
   藍金版用 `tone="flat"`（SilkSheen 新增的模式）：流體畫沒有金屬或緞面光澤，會動的光帶只會像鏡頭髒了。flat 連 pointermove／陀螺儀監聽與 rAF 迴圈都不掛，不是把效果調到看不見。
-- **UTM 第二層「把來源存進報名紀錄」尚未做**（2026-09-09 規劃，`docs/utm-plan.md` 執行順序第 3 步）：GA4 只說得出「300 人從 IG 來」，廟方真正要的是「這 12 筆點燈是抖音那支影片帶來的」；而且 LINE 不送 referrer，GA4 會把它全算成直接流量，**只有這一層看得到 LINE 到底有沒有效**。作法是每張轉換表加一個 `source text` 存 `line/broadcast/pudu2026` 這種扁平字串，注入點集中在 `services/supabase.ts` 的 9 個 submit 函式（不必動 UI）。沒 UTM 的訪客退回 referrer 網域、再沒有就存 `direct`，讓每一筆都有來源。注意：anon 只有 INSERT 沒有 SELECT，加欄位不必改 RLS；**不要把 source 寫進 localStorage 草稿**，草稿會存好幾天、還原時帶著過期來源。
 - 遷廟募款區塊尚未動工（使用者要求「新增一個區塊」，待確認目標金額／進度條、收款方式、說明內容、後台可編輯欄位）。
 - **揪團已上線**（2026-09-09，普渡報名結束後合併 `feature/group-booking` 的 a4fd261）。
   資料表 `shared_sessions`／`shared_session_entries` 與 RPC `get_shared_session` 都在資料庫裡。流程：建立共享場次 → 拿 `?share=<id>` 連結 → 親友各自填 → 一起送出；支援點燈／祈福／問事，連結 7 天到期。

@@ -82,3 +82,88 @@ export const withKeptParams = (path: string, alsoDrop: readonly string[] = []): 
   const query = params.toString();
   return query ? `${path}?${query}` : path;
 };
+
+// ─── 報名來源（存進資料庫的那一欄）────────────────────────────────────────
+
+const SOURCE_KEY = 'heshengtan_src_v1';
+
+/**
+ * referrer 網域前面這些子網域要去掉，否則同一個平台會散成好幾個來源。
+ * IG 的外連是 `l.instagram.com`、臉書手機版是 `m.facebook.com`，
+ * 不正規化的話報表上會出現 instagram.com 與 l.instagram.com 兩列。
+ */
+const STRIP_SUBDOMAIN = new Set(['www', 'm', 'l', 'lm', 'out', 'web']);
+
+/**
+ * 只留安全字元並截斷。
+ *
+ * 這個值最後會進資料庫、後台列表與 Excel 匯出，而 UTM 的內容來自網址——
+ * 任何人都能編。兩件事要擋：(1) 亂七八糟的字元讓報表分不了組；
+ * (2) 以 `=`／`+`／`@` 開頭的字串在 Excel 裡會被當成公式執行。
+ * 這裡把不允許的字元換成 `-` 再把開頭的 `-` 去掉，兩者一起解決。
+ */
+const cleanSource = (raw: string): string =>
+  raw.toLowerCase().replace(/[^a-z0-9._/-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+
+/** 從 referrer 推來源；站內連結與無 referrer 都回空字串 */
+const sourceFromReferrer = (): string => {
+  const ref = typeof document === 'undefined' ? '' : document.referrer;
+  if (!ref) return '';
+  try {
+    const host = new URL(ref).hostname.toLowerCase();
+    if (!host || host === window.location.hostname) return '';
+    const parts = host.split('.');
+    if (parts.length > 2 && STRIP_SUBDOMAIN.has(parts[0])) parts.shift();
+    return parts.join('.');
+  } catch {
+    return '';
+  }
+};
+
+const readEntrySource = (): string => {
+  if (typeof window === 'undefined') return 'direct';
+
+  // 有 UTM 就以 UTM 為準。entryUtm 本身已經含「這次網址帶的」與「這個分頁先前存的」，
+  // 所以這條路徑不必再讀一次 sessionStorage。
+  if (entryUtm) {
+    const p = new URLSearchParams(entryUtm);
+    const parts = [p.get('utm_source') ?? '', p.get('utm_medium') ?? '', p.get('utm_campaign') ?? ''];
+    // 尾端沒填的不要留下空段（`line` 而不是 `line//`）；中間缺的用 `-` 佔位，
+    // 否則 `line/pudu2026` 會看起來像 source/medium，欄位就對錯位了。
+    while (parts.length && !parts[parts.length - 1]) parts.pop();
+    const built = cleanSource(parts.map(x => x || '-').join('/'));
+    if (built) {
+      // 一併覆寫存檔，讓 sessionStorage 裡的值永遠等於 getSource() 回傳的值。
+      // 不寫的話，先直接進站（存下 direct）再點 UTM 連結的人，存檔會停在 direct——
+      // 邏輯上不影響（UTM 這條路徑優先、也不讀存檔），但之後有人去看那個 key 會被誤導。
+      try { sessionStorage.setItem(SOURCE_KEY, built); } catch { /* 無痕模式存不了，不影響回傳值 */ }
+      return built;
+    }
+  }
+
+  // 沒有 UTM：referrer 只有「第一次載入這份文件」時才可靠，使用者一重新整理就沒了。
+  // 存起來，同一次來訪的每一筆報名才會記到同一個來源。
+  try {
+    const kept = sessionStorage.getItem(SOURCE_KEY);
+    if (kept) return kept;
+  } catch { /* 無痕模式讀不到就當沒存過 */ }
+
+  const derived = cleanSource(sourceFromReferrer()) || 'direct';
+  try { sessionStorage.setItem(SOURCE_KEY, derived); } catch { /* 存不了就每頁各自推算 */ }
+  return derived;
+};
+
+const entrySource = readEntrySource();
+
+/**
+ * 這一次來訪的來源，格式「來源/形式/檔期」。送出報名時寫進各表的 `source` 欄。
+ *
+ *   line/broadcast/pudu2026   從 LINE 群發進來報的
+ *   tiktok/bio                抖音簡介欄（沒有指定檔期）
+ *   google.com                沒有 UTM，退回 referrer 的網域
+ *   direct                    沒有 UTM 也沒有 referrer
+ *
+ * **一定有值**，不會回空字串——資料庫那欄的 NULL 專門用來表示「這筆早於追蹤上線」，
+ * 兩者混在一起就再也分不出「沒追蹤到」與「還沒有追蹤功能」。
+ */
+export const getSource = (): string => entrySource;

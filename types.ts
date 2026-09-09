@@ -22,6 +22,11 @@ export type FahuiEntry = Record<string, string>;
 export interface FahuiRegistrationRecord {
   id: string;
   createdAt: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
   name: string;
   phone: string;
   address: string;
@@ -77,6 +82,11 @@ export interface FahuiReconcilePatch {
 export interface VolunteerRegistrationRecord {
   id: string;
   createdAt: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
   name: string;
   phone: string;
   address: string;
@@ -142,6 +152,11 @@ export interface BookingData {
 
 export interface BookingRecord extends BookingData {
   id: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
 }
 
 // ─── Booking Sessions (問事場次) ────────────────────────────────
@@ -195,6 +210,11 @@ export interface DonationData {
 
 export interface DonationRecord extends DonationData {
   id: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
 }
 
 export interface ServiceItem {
@@ -461,6 +481,11 @@ export interface LampRegistrationRecord extends LampRegistrationData {
   id: string;
   status: LampRegistrationStatus;
   createdAt: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
 }
 
 // ─── Member Contacts (會員通訊錄) ────────────────────────
@@ -577,6 +602,11 @@ export interface BlessingRegistrationRecord extends BlessingRegistrationData {
   id: string;
   status: BlessingStatus;
   createdAt: string;
+  /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
+   *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
+   *  undefined 代表這筆早於追蹤上線（2026-09-09）。
+   *  注意：與 devoteeRoster 的 `source`（參與管道）是完全不同的東西。 */
+  source?: string;
 }
 
 // ─── Deity Halls (殿) ────────────────────────────────────
